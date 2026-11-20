@@ -1,6 +1,6 @@
 {
   "name": "korea-security-guideline",
-  "description": "한국 정부·공공기관 형식의 사이버보안 가이드라인을 쓰고, 검사하고, 삽도를 그리고, 책으로 조판하는 Claude Code 스킬 모음",
+  "description": "한국 정부·공공기관 형식의 사이버보안 가이드라인을 집필·검사하고 삽도를 그려 책으로 발간하는 Claude Code 스킬 모음",
   "version": "1.0.0",
   "author": {
     "name": "ssabro"

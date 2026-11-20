@@ -1,6 +1,6 @@
-# 한국 사이버보안 가이드라인 스킬
+# 한국 사이버보안 가이드라인 집필·검사·발간 스킬
 
-> 한국 정부·공공기관 형식의 사이버보안 가이드라인을 쓰고, 검사하고, 책으로 펴내는 Claude Code 스킬
+> 정부 간행물의 형식·문체·판면을 따르는 문서를 만드는 Claude Code 스킬 모음
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Skills](https://img.shields.io/badge/skills-6-green.svg)](#스킬) [![Based on](https://img.shields.io/badge/based%20on-korean--skills-orange.svg)](https://github.com/DaleSeo/korean-skills)
 
