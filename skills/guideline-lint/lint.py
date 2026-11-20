@@ -108,6 +108,20 @@ CYCLE_NEAR = re.compile(
 RX_VAGUE_CYCLE = re.compile(r"정기적[으로인]|주기적[으로인]|수시로")
 
 RX_MIDDOT_BAD = re.compile(r"ㆍ")  # ㆍ 한글 호환 자모
+
+# 패턴을 **가리켜 설명하는** 자리는 지적하지 않는다. 규칙 문서가 "`ㆍ` 를 쓰지
+# 마세요" 라고 적으면 그 줄이 자기 규칙에 걸리고, 쓰는 사람이 나쁜 보기를
+# 인용할 때도 같은 일이 난다.
+RX_INLINE_CODE = re.compile(r"`[^`]*`")
+RX_QUOTED = re.compile(r"[\"\'\u201c\u201d\u2018\u2019]"
+                       r"[^\"\'\u201c\u201d\u2018\u2019]{0,40}"
+                       r"[\"\'\u201c\u201d\u2018\u2019]")
+
+
+def unquoted(line: str) -> str:
+    """인라인 코드와 따옴표 안을 지운 줄."""
+    return RX_QUOTED.sub(" ", RX_INLINE_CODE.sub(" ", line))
+
 RX_LOCATION_REF = re.compile(r"(?:아래|위|다음|상기|하기)\s*(?:의\s*)?(?:표|그림|도표|그래프)")
 RX_CAPTION_SQ = re.compile(r"\[(?:표|그림)\s?[\d\-–.]+\]")
 RX_CAPTION_AN = re.compile(r"<(?:표|그림)\s?[\d\-–.]+>")
@@ -434,12 +448,13 @@ def check_notation(doc: Doc) -> None:
                     "하나로 통일하세요. 코퍼스에서는 [표 N] 이 우세합니다.")
 
     doc.add_agg("MIDDOT", "warn",
-                [n for n, l in body_lines(doc) if RX_MIDDOT_BAD.search(l)],
+                [n for n, l in body_lines(doc) if RX_MIDDOT_BAD.search(unquoted(l))],
                 "가운뎃점에 한글 호환 자모 ㆍ(U+318D)가 쓰였습니다",
                 "·(U+00B7)로 바꾸세요. ㆍ 는 검색·정렬이 깨집니다.")
 
     doc.add_agg("LOCATION-REF", "warn",
-                [n for n, l in body_lines(doc) if RX_LOCATION_REF.search(l)],
+                [n for n, l in body_lines(doc)
+                 if RX_LOCATION_REF.search(unquoted(l))],
                 "표·그림을 위치로 가리켰습니다",
                 "번호로 가리키세요 — '[표 3-1]과 같이'. 조판이 바뀌면 '아래 표'는 "
                 "틀린 말이 됩니다.")
