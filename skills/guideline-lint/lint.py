@@ -517,8 +517,13 @@ def check_style(doc: Doc) -> None:
                             "'%s' 처럼 상태나 영향을 그대로 적으세요. "
                             "코퍼스 20종에 이 표현은 없습니다." % better)
 
-    body = body_lines(doc)
-    nonblank = [l for _, l in body if l.strip()]
+    # 산문 줄만 센다. 표 셀의 `문서 — 자산 등록부`, 캡션의 `— 도입·구축 시`
+    # 는 문장을 잇는 것이 아니라 이름표를 가르는 것이라 세면 안 된다.
+    body = [(n, l) for n, l in body_lines(doc)
+            if l.strip() and not l.lstrip().startswith("|")
+            and not l.lstrip().startswith("#")
+            and not re.match(r"^\[(표|그림)", l.strip())]
+    nonblank = [l for _, l in body]
     hits = [n for n, l in body if RX_EM_DASH.search(l)]
     if nonblank and len(hits) / len(nonblank) * 1000 > EM_DASH_PER_1000:
         doc.add_agg("EM-DASH", "warn", hits,
