@@ -1,10 +1,10 @@
 # 한국 사이버보안 가이드라인 스킬
 
-> 한국 정부·공공기관 형식의 사이버보안 가이드라인을 쓰고 검사하는 Claude Code 스킬
+> 한국 정부·공공기관 형식의 사이버보안 가이드라인을 쓰고, 검사하고, 책으로 펴내는 Claude Code 스킬
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Skills](https://img.shields.io/badge/skills-5-green.svg)](#스킬) [![Based on](https://img.shields.io/badge/based%20on-korean--skills-orange.svg)](https://github.com/DaleSeo/korean-skills)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![Skills](https://img.shields.io/badge/skills-6-green.svg)](#스킬) [![Based on](https://img.shields.io/badge/based%20on-korean--skills-orange.svg)](https://github.com/DaleSeo/korean-skills)
 
-국가 망 보안체계(N2SF), 분야별 보안 가이드라인, 법령형 지침처럼 **정부 간행물의 형식과 문체를 따르는 문서**를 쓸 때 쓰는 스킬입니다. 장·절 골격, 통제항목 ID 체계, 보안등급 매트릭스, 강제력 종결어미, 법령 인용 표기를 적용하고 검사합니다.
+국가 망 보안체계(N2SF), 분야별 보안 가이드라인, 법령형 지침처럼 **정부 간행물의 형식과 문체를 따르는 문서**를 쓸 때 쓰는 스킬입니다. 장·절 골격, 통제항목 ID 체계, 보안등급 매트릭스, 강제력 종결어미, 법령 인용 표기를 적용하고 검사합니다. 원고가 끝나면 발행본 판면으로 조판해 배포용 PDF 까지 만듭니다.
 
 규칙은 짐작이 아니라 **국내 사이버보안 가이드라인 20종(1,883쪽 / 약 145만 자)을 측정**해서 뽑았습니다. 측정값은 [`rules/`](rules/) 에 수치와 함께 적혀 있습니다.
 
@@ -60,7 +60,7 @@ python skills/guideline-lint/lint.py 원고.md            # 검사
 python skills/guideline-design/publish.py 원고.md       # 배포본 PDF
 ```
 
-`publish.py` 가 조판·인쇄·책 구성·목차 쪽번호·쪽번호를 차례로 돌립니다. 손으로 하면 명령이 열둘이고 `--skip` 값을 옮겨 적어야 하는데, 그 값을 도구끼리 주고받습니다. 100쪽 문서에 30초쯤 걸립니다.
+`publish.py` 가 조판·인쇄·책 구성·목차 쪽번호·검증·쪽번호를 차례로 돌립니다. 손으로 하면 명령이 열둘이고 `--skip` 값을 옮겨 적어야 하는데, 그 값을 도구끼리 주고받습니다. 100쪽 문서에 30초쯤 걸립니다.
 
 ```
 [1/7] 조판 — 국정원 표준형
@@ -88,23 +88,21 @@ python skills/guideline-design/publish.py 원고.md       # 배포본 PDF
 python skills/guideline-design/publish.py 원고.md --theme art
 ```
 
-원고가 아직 없다면 `guideline-writer` 부터 봅니다 — Claude Code 에서 "로봇 보안 가이드라인을 쓰고 싶다" 고 말하면 그 스킬이 골격부터 잡아 줍니다.
+원고가 아직 없다면 [대화로 부르는 스킬](#대화로-부르는-스킬)부터 보세요. 집필은 명령이 아니라 말로 시작합니다.
 
 ## 스킬
 
-### `guideline-writer` — 집필
+### `guideline-writer` 집필
 
 장르를 정하고 → 골격을 확정하고 → 통제항목·등급 체계를 설계하고 → 본문을 쓰고 → 부록을 붙이는 순서로 진행합니다.
 
-```
-가이드라인 써줘: 의료정보시스템 보안 가이드라인, 통제항목 체계 포함
-```
+> 의료정보시스템 보안 가이드라인 써줘. 통제항목 체계도 넣어서.
 
 - **장르를 먼저 묻습니다.** 법령형 지침 / 분야별 가이드라인 / 통제항목 체계 / 실무 안내서는 골격·번호 체계·종결어미가 전부 다릅니다. 섞으면 바로 어긋나 보입니다.
 - **전개 축을 하나만 씁니다.** 보안대책 장은 수명주기별 또는 구성요소·연계유형별 중 하나입니다. 둘을 장 단위로 섞으면 같은 통제가 흩어집니다.
 - 장르별 목차 템플릿 5종과 재사용할 통제 도메인 코드 27개를 함께 제공합니다.
 
-### `guideline-lint` — 검사
+### `guideline-lint` 검사
 
 ```bash
 python skills/guideline-lint/lint.py 원고.md
@@ -123,7 +121,7 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 
 같은 성격의 지적은 하나로 묶어 횟수와 예시 줄번호만 보여줍니다. 측정에 쓴 가이드라인 20종에 돌려 보면 문서당 오류 0~2건, 경고 0~4건이 나옵니다.
 
-### `guideline-design` — 배포본 조판
+### `guideline-design` 배포본 조판
 
 원고를 **발행본 모양의 HTML·PDF 로** 만듭니다. 판면·여백·본문 크기·색은 짐작이 아니라 발행본 20종을 측정해 정했습니다.
 
@@ -137,17 +135,9 @@ python skills/guideline-design/publish.py 원고.md --theme nis
 
 한 명령이 일곱 단계를 돌립니다. 단계별로 따로 부르고 싶으면 [SKILL.md](skills/guideline-design/SKILL.md) 에 `render` · `book` · `toc` · `paginate` · `coverart` 를 각각 쓰는 법이 있습니다.
 
-목차 쪽번호 때문에 **두 번 인쇄합니다.** 조판하기 전에는 쪽을 알 수 없습니다. 빈 쪽도 원고에 박지 않고 인쇄한 뒤에 필요한 만큼만 끼웁니다 — 브라우저가 `break-before: recto` 를 무시하기 때문입니다.
+빈 쪽은 원고에 박지 않고 인쇄한 뒤에 필요한 만큼만 끼웁니다 — 브라우저가 `break-before: recto` 를 무시하기 때문입니다. 결과 HTML 은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
 
-결과 HTML 은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
-
-기관이 이미 펴낸 책이 있으면 **거기서 재서 테마를 만듭니다.**
-
-```bash
-python skills/guideline-design/themegen.py 기관_작년_가이드라인.pdf --key ourorg
-```
-
-판면·여백·본문 크기·색을 재서 `themes/ourorg.py` 를 씁니다. 주조색은 제목 글자 색에서 찾고, 후보를 모두 주석에 적어 두니 한 줄 바꿔 끼우면 됩니다. 값 몇 개만 바꿀 때는 `--set accent=#1b3a6b` 처럼 줘도 됩니다.
+기관이 이미 펴낸 책이 있으면 거기서 재서 테마를 만들 수 있습니다 — [기관에 맞추기](#기관에-맞추기).
 
 **테마는 10종**입니다. `themes/` 에 파일 하나가 테마 하나라 직접 더할 수 있습니다 — [테마 만들기](skills/guideline-design/themes/README.md).
 
@@ -173,23 +163,17 @@ python skills/guideline-design/figplan.py 원고.md --mode auto --plan 계획.js
 
 수치의 근거는 [발행본 디자인 측정값](skills/guideline-design/references/publication-design.md)에 있습니다.
 
-### `govdoc-style` — 공문서 문체 일관성
+### `govdoc-style` 공문서 문체 일관성
 
 korean-skills `style-guide` 에서 구조를 가져와 공문서 관례로 내용을 교체한 파생본입니다. 맞춤법이 아니라 **같은 문서 안에서의 일관성**을 봅니다 — 강제력 종결어미, 경어체 여부, 용어 통일, 법령 인용, 영문 병기, 숫자·날짜, 목록·제목 형식, 인용·강조.
 
 원본과 무엇이 달라졌는지는 [SKILL.md 의 "원본과 달라진 점"](skills/govdoc-style/SKILL.md) 에 있습니다.
 
-### `grammar-checker` · `humanizer` — korean-skills 원본
+### `grammar-checker` · `humanizer`
 
 맞춤법·띄어쓰기·구두점 교정과 AI 문체 완화입니다. **수정 없이 복사했습니다.** 자세한 내용은 [grammar-checker/ORIGIN.md](skills/grammar-checker/ORIGIN.md), [humanizer/ORIGIN.md](skills/humanizer/ORIGIN.md) 를 보세요.
 
-`humanizer` 는 초안이 AI가 쓴 듯 읽힐 때만 쓰세요. **통제항목 표나 조문처럼 형식이 정해진 부분에는 쓰지 마세요** — 형식이 곧 내용인 곳에서 문체를 다듬으면 규범의 세기가 흔들립니다.
-
-> `humanizer` 의 참조 문서 하나가 업스트림의 `style-guide` 스킬을 상대 경로로
-> 가리킵니다. 이 저장소는 `style-guide` 를 복사하지 않았으므로(대신 파생본
-> `govdoc-style` 을 두었습니다) 그 링크 하나는 끊어져 있습니다. 원본을
-> 수정하지 않는 것이 원칙이라 손대지 않았습니다 — 자세한 내용은
-> [humanizer/ORIGIN.md](skills/humanizer/ORIGIN.md).
+> `humanizer` 의 참조 문서 하나가 업스트림의 `style-guide` 스킬을 상대 경로로 가리킵니다. 이 저장소는 `style-guide` 를 복사하지 않았으므로(대신 파생본 `govdoc-style` 을 두었습니다) 그 링크 하나는 끊어져 있습니다. 원본을 수정하지 않는 것이 원칙이라 손대지 않았습니다 — 자세한 내용은 [humanizer/ORIGIN.md](skills/humanizer/ORIGIN.md).
 
 ## 대화로 부르는 스킬
 
@@ -229,8 +213,7 @@ python skills/guideline-lint/lint.py 원고.md
 
 **이 단계가 가장 중요하고 자동화되지 않습니다.**
 
-> ｢정보통신기반 보호법｣ 제5조 원문이야. 우리 원고 제1장 제3절의 인용이 맞는지
-> 조문과 대조해줘.
+> ｢정보통신기반 보호법｣ 제5조 원문이야. 우리 원고 제1장 제3절의 인용이 맞는지 조문과 대조해줘.
 > (법제처에서 복사한 조문 붙여넣기)
 
 조문을 직접 가져다 붙이세요. 기억에 기대면 틀립니다. 이 저장소의 예제 원고를 만들며 **정부 발행물에서 그대로 옮겨 온 인용 오류 2건**을 이 방식으로 찾았습니다 — ｢국가정보원법｣의 조항 번호, ｢보안업무규정｣의 '보호구역/보호지역' 용어였습니다.
@@ -259,8 +242,7 @@ python skills/guideline-lint/lint.py 원고.md
 python skills/guideline-design/figplan.py 원고.md --mode review
 ```
 
-> figure-plan.json 이 후보 6곳을 짚었어. 원고를 읽고 정말 필요한 곳만 골라서
-> 명세를 채워줘. 표로 이미 설명된 곳은 빼고.
+> figure-plan.json 이 후보 6곳을 짚었어. 원고를 읽고 정말 필요한 곳만 골라서 명세를 채워줘. 표로 이미 설명된 곳은 빼고.
 
 예제 원고에서는 이렇게 물었더니 여섯 중 다섯이 이미 표로 설명돼 있어 하나만 남았습니다. **"여섯 개 다 그려줘" 라고 하지 마세요** — 표와 같은 내용을 두 번 보이면 어느 쪽이 정본인지 헷갈리고, 원고가 바뀔 때 한쪽만 고쳐집니다.
 
@@ -284,7 +266,7 @@ python skills/guideline-design/figplan.py 원고.md --mode review
 
 `guideline-writer` 가 골격·통제 ID 체계·등급 매트릭스를 잡아 줍니다.
 
-**한 문단을 한 줄로 씁니다.** 줄바꿈을 넣지 마세요. 검사기가 줄 단위로 보기 때문에, 한 문단을 여러 줄로 쪼개면 "주기가 없다" 같은 오탐이 납니다. 이미 쪼개져 있으면 `python skills/guideline-writer/unwrap.py 원고.md` 로 폅니다.
+**한 문단을 한 줄로 씁니다.** 검사기가 줄 단위로 보기 때문입니다 — 자세한 것은 [`guideline-lint`](#guideline-lint-검사).
 
 ### 3. 쓰는 동안 계속 검사한다
 
@@ -300,9 +282,7 @@ python skills/guideline-lint/lint.py 원고.md
 
 ### 5. 문체와 맞춤법을 본다
 
-```bash
-# govdoc-style · grammar-checker — Claude Code 에서 스킬로 부릅니다
-```
+`govdoc-style` 과 `grammar-checker` 는 Claude Code 에서 말로 부릅니다 — [문체와 맞춤법을 볼 때](#문체와-맞춤법을-볼-때).
 
 요약본을 함께 낸다면 **장르가 바뀌므로 문체를 통째로 갑니다.** 본문은 `~한다`, 요약본은 `~합니다` 이고 번호 체계도 바뀝니다. 검사도 따로 돌립니다 — `lint.py 요약본.md --genre manual`.
 
@@ -312,7 +292,7 @@ python skills/guideline-lint/lint.py 원고.md
 python skills/guideline-design/figplan.py 원고.md --mode review
 ```
 
-후보를 짚어 주면 **정말 필요한지 사람이 판단합니다.** 예제 원고에서는 여섯 곳 중 다섯이 이미 표로 설명돼 있어 그리지 않았습니다. 표로 충분하면 그리지 않습니다 — 같은 내용을 두 번 보이면 어느 쪽이 정본인지 헷갈리고, 원고가 바뀔 때 한쪽만 고쳐집니다.
+후보를 짚어 주면 **정말 필요한지 사람이 판단합니다.** 예제 원고에서는 여섯 곳 중 다섯이 이미 표로 설명돼 있어 그리지 않았습니다. 표로 충분하면 그리지 않습니다.
 
 명세를 채우고 그립니다. **도구가 혼자 노드와 연결을 지어내지 못하게** 명세를 사람이 채우는 구조입니다 — 원고에 없는 구성요소를 그린 도식은 그럴듯해서 더 위험합니다.
 
@@ -321,7 +301,7 @@ python skills/guideline-design/figplan.py 원고.md --mode auto --plan 계획.js
 python skills/guideline-design/figplan.py 원고-삽도.md --verify
 ```
 
-`auto` 는 `<이름>-삽도.md` 를 새로 씁니다. 쓰기로 했다면 **원본 자리로 올리세요.** 원고가 둘이면 곧 어느 쪽이 정본인지 헷갈립니다.
+`auto` 는 `<이름>-삽도.md` 를 새로 씁니다. 쓰기로 했다면 **원본 자리로 올리세요.**
 
 ### 7. 배포본을 뽑는다
 
@@ -363,7 +343,7 @@ python skills/guideline-design/publish.py 원고.md --theme nis \
 
 **판면을 A4 로 잡는다.** 가장 흔한 실수입니다. 측정한 20종 중 A4 는 6종뿐이고 전부 6쪽짜리 지침이나 훈령입니다. 본체 가이드라인은 **188×257mm** 가 중앙값입니다. 본문에 명조를 쓴 문서는 하나도 없고, 여백은 좌우가 상하보다 넓습니다.
 
-**원고를 여러 줄로 쪼갠다.** 검사기가 줄 단위로 봅니다. 한 문단을 한 줄로 쓰세요. `unwrap.py` 가 펴 줍니다.
+**원고를 여러 줄로 쪼갠다.** 검사기가 줄 단위로 보므로 주기나 용어가 다른 줄에 떨어지면 잘못 지적됩니다. `python skills/guideline-writer/unwrap.py 원고.md` 가 펴 줍니다.
 
 **문단이 `[표 2-3]은 …` 으로 시작한다.** 캡션으로 오인될 수 있습니다. 캡션은 `[표 2-3] 제목` 처럼 **닫는 괄호 뒤에 공백**이 옵니다. 조판기는 이 규칙으로 가르지만, 원고를 쓸 때도 참조와 캡션을 섞지 마세요.
 
@@ -427,7 +407,7 @@ rm -rf skills/grammar-checker skills/humanizer
 - **린터는 법령 인용의 정확성을 보지 않습니다.** 꺾쇠·띄어쓰기 같은 표기만 봅니다. 조문 번호는 사람이 원문과 대조해야 합니다. 조문 본문은 법제처 국가법령정보 공동활용(`open.law.go.kr`)의 조항호목 조회 API 로 가져올 수 있습니다 — **발행된 정부 간행물의 인용도 틀립니다.** 시험 집필에서 코퍼스 간행물의 ｢국가정보원법｣ 조문 인용을 따랐다가 틀린 사례가 나왔습니다 ([rules/06-notation.md](rules/06-notation.md)).
 - **린터는 구조를 보지 않습니다.** 장·절 구성이 장르에 맞는지, 3장의 위협과 4장의 대책이 맞물리는지, 부록 체크리스트가 본문과 1:1인지는 사람이 봐야 합니다.
 - **등급 검사는 병합 셀이 있는 표에서 동작하지 않습니다.** 열이 밀려 `●` 가 다른 칸으로 들어갑니다. 원고에서 병합 셀을 쓰지 마세요.
-- **원본 가이드라인을 배포하지 않습니다.** `rules/` 에는 문장이 아니라 구조·체계· 표기 규칙과 측정 수치만 담았습니다.
+- **원본 가이드라인을 배포하지 않습니다.** `rules/` 에는 문장이 아니라 구조·체계·표기 규칙과 측정 수치만 담았습니다.
 
 ## 라이선스
 
