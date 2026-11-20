@@ -44,11 +44,16 @@ def page_matches(page, mark: str) -> bool:
     """그 쪽이 이 표지로 시작하는가.
 
     제목만 있는 속표지는 쪽 전체가 제목과 같고, 그 밖에는 제목 줄이 따로 있다.
+
+    견줄 때 **공백을 모두 지운다.** 테마에 따라 장 번호를 `제 1 장` 처럼 자간을
+    벌려 조판하는데, 글자 그대로 견주면 빗나가 본문 시작을 한참 뒤에서 찾는다.
     """
     text = page.get_text()
-    if squeeze(text) == squeeze(mark):
+    want = squeeze(mark).replace(' ', '')
+    if squeeze(text).replace(' ', '') == want:
         return True
-    return any(line.strip() == mark for line in text.split('\n'))
+    return any(squeeze(line).replace(' ', '') == want
+               for line in text.split(chr(10)))
 
 
 def find_marks(doc, marks: list, start: int = 1) -> list:
@@ -64,6 +69,21 @@ def find_marks(doc, marks: list, start: int = 1) -> list:
         if hit is not None:
             at = hit + 1
     return out
+
+
+def find_body(doc, mark: str, start: int = 1, head: int = 44) -> int:
+    """본문이 시작하는 쪽을 찾는다. 못 찾으면 -1.
+
+    장 간지는 장 번호가 **쪽 맨 앞**에 온다. 본문 중간의 장 참조는 글 속에
+    묻히므로 앞 `head` 글자만 본다. 테마가 번호와 제목의 순서를 바꾸거나
+    (`개요 제1장`) 자간을 벌려도(`제 1 장`) 그 범위 안에 들어온다.
+    """
+    want = squeeze(mark).replace(' ', '')
+    for i in range(start, doc.page_count):
+        flat = squeeze(doc[i].get_text()).replace(' ', '')
+        if want in flat[:head]:
+            return i
+    return -1
 
 
 def main(argv: list) -> int:
@@ -125,7 +145,13 @@ def main(argv: list) -> int:
             added += 1
 
     body_mark = a.body or (marks[-1] if marks else '제1장')
-    body = find_marks(doc, [body_mark], start=0)[0]
+    # 앞붙이에도 `제1장` 이라는 글자가 나온다(발간 정보의 ※ 문장). 앞 표지들을
+    # 차례대로 짚은 뒤 그 다음 쪽부터 본문을 찾는다.
+    lead = find_marks(doc, marks[:-1]) if len(marks) > 1 else []
+    after = max([p for p in lead if p is not None], default=0) + 1
+    body = find_body(doc, body_mark, after)
+    if body < 0:
+        body = find_body(doc, body_mark, 1)
     if body is None:
         print('본문 시작을 못 찾았다. --body 로 직접 주세요.')
         return 2
