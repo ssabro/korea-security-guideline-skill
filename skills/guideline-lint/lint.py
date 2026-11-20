@@ -179,6 +179,15 @@ RX_ORDINAL = re.compile(r"(첫|둘|두|셋|세|넷|네|다섯)\s*(?:째|번째)"
 COUNT_WORD = {"두": 2, "세": 3, "네": 4, "다섯": 5, "2": 2, "3": 3, "4": 4, "5": 5}
 
 # 가운뎃점 뒤의 공백
+# `N<단위>` 를 선언하고 쉼표로 늘어놓은 개수가 다른 곳
+NUM_WORD = {"한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6, "일곱": 7,
+            "여덟": 8, "아홉": 9,
+            "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9}
+RX_NUM_UNIT = re.compile(
+    r"(한|두|세|네|다섯|여섯|일곱|여덟|아홉|[2-9])\s*"
+    r"(도메인|유형|구역|계층|영역|범주)"   # '개' '가지' 는 뺀다 — 오탐이 많다
+    r"(?![월년간])")  # '6개월' 의 '6개' 를 선언으로 읽지 않는다
+
 RX_MIDDOT_SPACE = re.compile(r"[가-힣A-Za-z0-9]·[ \t]+[가-힣A-Za-z0-9]")
 
 # 긴 대시로 부연을 잇는 버릇. 코퍼스 20종은 1천 줄당 0.3회뿐이고(20종 중
@@ -547,6 +556,28 @@ def check_style(doc: Doc) -> None:
                 "'N 가지' 라고 적고 그보다 많이 늘어놓았습니다",
                 "선언한 수와 실제 항목 수를 맞추세요.")
 
+    # 선언한 수와 쉼표로 늘어놓은 개수가 다른 곳. 열거를 세는 일은 어림이므로
+    # 짧은 항목이 둘 이상 이어질 때만 센다.
+    off = []
+    for n, l in body_lines(doc):
+        m = RX_NUM_UNIT.search(l)
+        if not m:
+            continue
+        want = NUM_WORD.get(m.group(1), 0)
+        if want < 2:
+            continue
+        tail = l[m.end():]
+        for seg in re.findall(r"\*\*([^*]{4,160})\*\*", tail):   # 굵은 글씨 열거만
+            items = [x.strip() for x in seg.split(",")]
+            if len(items) < 3:
+                continue
+            if all(0 < len(x) <= 30 for x in items) and len(items) != want:
+                off.append(n)
+                break
+    doc.add_agg("COUNT-LIST", "warn", off,
+                "선언한 수와 늘어놓은 항목 수가 다릅니다",
+                "'세 도메인' 이라 적고 다섯을 늘어놓으면 읽는 사람이 헷갈립니다.")
+
 
 def check_id_order(doc: Doc) -> None:
     """한 표 안에서 통제항목 ID 번호가 뒤섞인 곳.
@@ -840,6 +871,7 @@ ALIAS = {
     "MONEY-SPACE": "STYLE",
     "MIDDOT-SPACE": "STYLE",
     "COUNT-MISMATCH": "STYLE",
+    "COUNT-LIST": "STYLE",
     "EM-DASH": "STYLE",
     "PARTICLE-SPACE": "NOTATION",
     "HEADING-SKIP": "HEADINGS",
