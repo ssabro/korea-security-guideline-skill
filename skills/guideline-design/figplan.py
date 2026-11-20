@@ -160,20 +160,39 @@ def fill_check(fig: dict) -> str:
 
 
 def insert(md: str, figs: list, figdir: str) -> str:
-    """제목 바로 뒤에 캡션과 그림을 넣는다. 한 문단 한 줄 규칙을 지킨다."""
+    """캡션과 그림을 넣는다. 한 문단 한 줄 규칙을 지킨다.
+
+    기본은 제목 바로 뒤다 — 코드 블록 안으로 들어갈 일이 없다. 계획에 `after`
+    로 문장 일부를 적으면 **그 문단 뒤**에 넣는다. 장을 설명하는 문단보다 그림이
+    앞에 오면 읽는 순서가 뒤집히기 때문이다.
+    """
     secs = sections(md)
     by_head = {}
     for s in secs:
         by_head.setdefault(s['heading'], s)
     puts = []
     for f in figs:
-        s = by_head.get(f.get('anchor') or f['heading'])
-        if not s:
-            print('  ! 제목을 못 찾음: %s' % f.get('anchor'))
-            continue
-        block = ('\n\n[그림 %s] %s\n\n![%s](%s/%s)'
-                 % (f['number'], f['title'], f['alt'], figdir, f['file']))
-        puts.append((s['body_at'], block))
+        at = None
+        probe = f.get('after')
+        if probe:
+            i = md.find(probe)
+            if i < 0:
+                print('  ! after 문장을 못 찾음: %s' % probe[:30])
+            else:
+                j = md.find(chr(10) + chr(10), i)
+                at = len(md) if j < 0 else j
+        if at is None:
+            s = by_head.get(f.get('anchor') or f['heading'])
+            if not s:
+                print('  ! 제목을 못 찾음: %s' % f.get('anchor'))
+                continue
+            at = s['body_at']
+        lead = ''
+        if f.get('lead'):
+            lead = chr(10) * 2 + f['lead']
+        block = (lead + chr(10) * 2 + '[그림 %s] %s' % (f['number'], f['title'])
+                 + chr(10) * 2 + '![%s](%s/%s)' % (f['alt'], figdir, f['file']))
+        puts.append((at, block))
     for pos, block in sorted(puts, reverse=True):
         md = md[:pos] + block + md[pos:]
     return md
