@@ -68,6 +68,36 @@ THEMES = {
         cover='rule'),
 }
 
+def load_themes() -> None:
+    """`themes/` 폴더의 테마를 등록한다.
+
+    테마 파일 하나가 테마 하나다. 여러 사람이 동시에 테마를 만들어도 서로 건드릴
+    일이 없다. 파일은 `THEME` 사전을 두고, 기본 CSS 뒤에 덧붙일 것이 있으면
+    `EXTRA_CSS` 문자열을 둔다. `themes/README.md` 에 쓸 수 있는 이름이 있다.
+    """
+    here = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'themes')
+    if not os.path.isdir(here):
+        return
+    for fn in sorted(os.listdir(here)):
+        if not fn.endswith('.py') or fn.startswith('_'):
+            continue
+        ns = {}
+        try:
+            exec(compile(io.open(os.path.join(here, fn), encoding='utf-8').read(),
+                         fn, 'exec'), ns)
+        except Exception as e:
+            print('테마 읽기 실패 %s — %s' % (fn, e))
+            continue
+        th = ns.get('THEME')
+        if not isinstance(th, dict) or 'key' not in th:
+            print('테마 건너뜀 %s — THEME 사전에 key 가 없다' % fn)
+            continue
+        th = dict(th)
+        key = th.pop('key')
+        th.setdefault('extra', ns.get('EXTRA_CSS', ''))
+        THEMES[key] = th
+
+
 GOTHIC = ("'Malgun Gothic','맑은 고딕','KoPubWorld돋움체','Noto Sans KR',"
           "'Apple SD Gothic Neo',sans-serif")
 MONO = "'D2Coding','Consolas','Menlo',monospace"
@@ -377,7 +407,14 @@ def convert(md: str, base: str, mark: str, pages: dict = None) -> str:
     return '\n'.join(out)
 
 
+DEFAULTS = dict(label='이름 없는 테마', note='', page=(188, 257), margin=(25, 24, 19, 16),
+                body=10.5, ink='#1a1a1a', accent='#24408f', accent2='#006cb7',
+                tint='#e8eef7', rule='#c9d3e2', soft='#5b6670', serif=False,
+                badge='pill', chapter='page', cover='rule', extra='')
+
+
 def css(t: dict) -> str:
+    t = dict(DEFAULTS, **t)
     w, h = t['page']
     ml, mr, mt, mb = t['margin']
     badge = t['badge']
@@ -502,7 +539,24 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
            w=w, h=h, ml=ml, mr=mr, mt=mt, mb=mb, radius=radius,
            rh=max(5, mt - 11), brk='break-before:page' if t['chapter'] == 'page' else '',
            coverh=h - mt - mb - 20, coverp=h - mt - mb - 4,
-           coverb=h - mb - 4)
+           coverb=h - mb - 4) + extra_css(t)
+
+
+def extra_css(t: dict) -> str:
+    """테마가 덧붙인 CSS. `%` 서식 대신 `{{이름}}` 토큰을 쓴다.
+
+    CSS 에는 `%` 와 중괄호가 흔해서 `%` 서식을 쓰면 터진다. 토큰 치환만 한다.
+    """
+    s = t.get('extra') or ''
+    if not s:
+        return ''
+    w, h = t['page']
+    ml, mr, mt, mb = t['margin']
+    for k, v in (('w', w), ('h', h), ('ml', ml), ('mr', mr), ('mt', mt), ('mb', mb),
+                 ('body', t['body']), ('coverp', h - mt - mb - 4),
+                 ('coverh', h - mt - mb - 20), ('coverb', h - mb - 4)):
+        s = s.replace('{{%s}}' % k, str(v))
+    return chr(10) + s
 
 
 def recto_marks(md: str, title: str) -> list:
@@ -527,8 +581,8 @@ def recto_marks(md: str, title: str) -> list:
 
 
 def build(md: str, base: str, key: str, title: str, pages: dict = None) -> str:
-    t = THEMES[key]
-    mark = '■' if key == 'print' else '●'
+    t = dict(DEFAULTS, **THEMES[key])
+    mark = t.get('mark') or ('■' if key == 'print' else '●')
     doctitle, meta, rest = split_front(md)
     name = doctitle or title
     info_md, toc_md, body_md = split_sections(rest)
@@ -560,6 +614,7 @@ def main(argv: list[str]) -> int:
                     help='toc.py 가 만든 쪽번호 json. 목차에 넣는다.')
     a = ap.parse_args(argv)
 
+    load_themes()
     if a.themes or not a.source:
         print('테마')
         for k, t in THEMES.items():

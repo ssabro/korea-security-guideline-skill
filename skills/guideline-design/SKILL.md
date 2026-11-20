@@ -207,6 +207,41 @@ python paginate.py dist/책.pdf --title "문서명" --style bottom   --skip 8 --
 
 색 바탕은 `print-color-adjust: exact` 가 없으면 인쇄에서 사라집니다.
 
+## 삽도 만들기
+
+원고에 그림이 필요한 자리를 찾아 그려 넣습니다. 색은 조판 테마를 따르므로
+문서와 삽도가 따로 놀지 않습니다. 규칙은
+[삽도 — 무엇을, 언제, 어떻게](references/figure-design.md)에 있습니다.
+
+```bash
+python figplan.py 원고.md --mode review                    # 어디에 무엇이 필요한지
+python figures.py 계획.json --out figures/ --theme nis      # 그린다
+python figplan.py 원고.md --mode auto --plan 계획.json      # 원고에 넣는다
+python figplan.py 원고-삽도.md --verify                     # 참조 무결성
+```
+
+**두 단계인 이유가 있습니다.** `review` 가 내놓는 계획에는 명세가 비어 있고,
+원고를 읽고 채워야 그립니다. 도구가 혼자 노드와 연결을 지어내지 못하게 막은
+것입니다 — 원고에 없는 구성요소를 그린 도식은 그럴듯해서 더 위험합니다.
+
+기본은 `review` 입니다. `--mode targeted --target 제4장` 으로 한 장만 할 수도
+있습니다. `auto` 는 원본을 덮어쓰지 않고 `<이름>-삽도.md` 를 새로 씁니다.
+
+그릴 수 있는 꼴은 여덟입니다 — `python figures.py --types` 로 봅니다.
+
+| | |
+|---|---|
+| `architecture` `flow` | 구성·흐름 |
+| `process` `threat` | 절차·공격 경로 |
+| `compare` `matrix` | 비교·교차표 |
+| `concept` `hero` | 개념도·장 시작 |
+
+**SVG 를 fitz 로 그려 보면 그라데이션이 검게 나옵니다.** fitz 의 SVG 지원이
+좁아서이지 그림이 잘못된 것이 아닙니다. 확인은 Chrome 으로 하세요.
+
+이미지 생성 모델은 쓰지 않습니다 — 연결된 API 가 없습니다. 사진 같은 그래픽이
+필요하면 계획에 적어 두고 발행기관이 별도로 만듭니다.
+
 ## 반드시 눈으로 보세요
 
 조판은 글로 검사되지 않습니다. 만들고 끝내지 말고 **렌더링해서 보세요.** 이 스킬을
