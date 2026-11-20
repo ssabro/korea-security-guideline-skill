@@ -183,15 +183,15 @@ def front_matter(title: str, meta: dict, kind_css: str,
                  info_html: str, toc_html: str) -> str:
     """책 앞붙이. 쪽 차례는 발행본 관행을 따른다.
 
-    1 표지 · 2 빈 쪽 · 3 속표지 · 4 빈 쪽 · 5 문서 정보 · 6 빈 쪽 · 7 목차
+    표지 · 속표지 · 문서 정보 · 목차 차례로 각각 새 쪽에서 시작한다.
+
+    빈 쪽은 여기서 넣지 않는다. 문서 정보가 한 쪽을 넘치면 뒤 차례가 밀리므로,
+    **어느 쪽이 비어야 하는지는 인쇄해 봐야 안다.** `book.py` 가 인쇄한 뒤에
+    각 앞붙이를 홀수 쪽으로 맞추며 필요한 만큼만 끼운다.
     """
-    blank = '<section class="blank">&nbsp;</section>'
     return (cover(title, meta, kind_css)
-            + blank
             + '<section class="halftitle"><h1>%s</h1></section>' % inline(title)
-            + blank
             + '<section class="docinfo">%s</section>' % info_html
-            + blank
             + '<section class="tocpage">%s</section>' % toc_html)
 
 
@@ -441,11 +441,10 @@ h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
 /* 바탕형 — 연한 색을 전면에 깐다. ｢SIEM·SOAR 지침｣ 계열 */
 .cv-tint{background:var(--tint);border-top:4mm solid var(--accent);padding:0 14mm}
 
-.blank{break-after:page;height:1px;overflow:hidden}
-.halftitle{break-after:page;display:flex;align-items:center;justify-content:center;
+.halftitle{break-before:page;break-after:page;display:flex;align-items:center;justify-content:center;
  min-height:%(coverh)smm;text-align:center}
 .halftitle h1{font-size:1.5em;font-weight:800;line-height:1.4;letter-spacing:-.02em}
-.docinfo{break-after:page}
+.docinfo{break-before:page;break-after:page}
 .tocpage{break-before:page;break-after:page}
 .colophon{break-before:page;display:flex;flex-direction:column;justify-content:flex-end;
  min-height:%(coverh)smm}
@@ -494,7 +493,6 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
  .cover{min-height:%(h)smm;height:%(h)smm;margin:0;break-after:page;
   -webkit-print-color-adjust:exact;print-color-adjust:exact}
  .halftitle,.colophon{min-height:%(coverp)smm;height:%(coverp)smm}
- .blank{height:%(coverp)smm}
  .sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
  .rh{display:none}
  .chapter{%(brk)s}
@@ -505,6 +503,27 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
            rh=max(5, mt - 11), brk='break-before:page' if t['chapter'] == 'page' else '',
            coverh=h - mt - mb - 20, coverp=h - mt - mb - 4,
            coverb=h - mb - 4)
+
+
+def recto_marks(md: str, title: str) -> list:
+    """홀수 쪽에서 시작해야 하는 자리의 표지를 차례대로 돌려준다.
+
+    인쇄본에서 이 글자를 찾아 그 쪽이 짝수면 앞에 빈 쪽을 끼운다. 표지는 늘
+    1쪽이므로 넣지 않는다.
+    """
+    _, _, rest = split_front(md)
+    info_md, toc_md, body_md = split_sections(rest)
+    marks = [title]
+    for block in (info_md, toc_md):
+        h = next((l for l in block.split(chr(10)) if l.startswith('#')), '')
+        h = h.lstrip('#').strip()
+        if h:
+            marks.append(h)
+    first = next((l for l in body_md.split(chr(10)) if l.startswith('# ')), '')
+    m = re.match(r'^#\s*(제\d+장)', first)
+    if m:
+        marks.append(m.group(1))
+    return marks
 
 
 def build(md: str, base: str, key: str, title: str, pages: dict = None) -> str:
@@ -571,6 +590,9 @@ def main(argv: list[str]) -> int:
             return 2
         p = os.path.join(out, '%s.html' % k)
         io.open(p, 'w', encoding='utf-8', newline='\n').write(build(md, base, k, title, pages))
+        mp = os.path.join(out, '%s-구성.json' % k)
+        io.open(mp, 'w', encoding='utf-8', newline='\n').write(
+            json.dumps({'recto': recto_marks(md, title)}, ensure_ascii=False, indent=1) + '\n')
         print('%s  (%s)' % (p, THEMES[k]['label']))
 
     if a.all:
