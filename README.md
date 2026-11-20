@@ -56,6 +56,54 @@ cp -r rules ~/.claude/                  # 스킬이 ../../rules/ 를 읽습니�
 스킬이 `rules/` 를 상대 경로로 읽으므로 **저장소를 통째로 두고 쓰는 편이
 간단합니다.** 스킬 하나만 떼어 가면 규칙 링크가 끊어집니다.
 
+조판에는 **Chrome 이나 Edge** 와 **PyMuPDF** 가 더 필요합니다.
+
+```bash
+pip install pymupdf
+```
+
+## 빠른 시작
+
+원고가 있다면 두 줄이면 배포본이 나옵니다.
+
+```bash
+python skills/guideline-lint/lint.py 원고.md            # 검사
+python skills/guideline-design/publish.py 원고.md       # 배포본 PDF
+```
+
+`publish.py` 가 조판·인쇄·책 구성·목차 쪽번호·쪽번호를 차례로 돌립니다. 손으로
+하면 명령이 열둘이고 `--skip` 값을 옮겨 적어야 하는데, 그 값을 도구끼리
+주고받습니다. 100쪽 문서에 30초쯤 걸립니다.
+
+```
+[1/7] 조판 — 국정원 표준형
+[2/7] 인쇄 (1차)
+[3/7] 책 구성
+  앞붙이 8쪽 · 본문 9쪽부터 · 빈 쪽 3장
+[4/7] 목차 쪽번호
+  39항목 중 39개를 찾았습니다
+[5/7] 재조판·재인쇄
+[6/7] 검증
+  쪽이 밀린 항목 없음
+[7/7] 쪽번호
+  91쪽에 번호
+
+공공기관 ROS 2 기반 ... 가이드라인.pdf
+106쪽 · 188x257mm · 9.4MB · 30초
+통제항목 156 / 156
+```
+
+**목차 쪽번호 때문에 두 번 인쇄합니다.** 조판하기 전에는 쪽을 알 수 없습니다.
+
+표지와 장 간지에 그래픽을 넣으려면 테마를 바꿉니다.
+
+```bash
+python skills/guideline-design/publish.py 원고.md --theme art
+```
+
+원고가 아직 없다면 `guideline-writer` 부터 봅니다 — Claude Code 에서
+"로봇 보안 가이드라인을 쓰고 싶다" 고 말하면 그 스킬이 골격부터 잡아 줍니다.
+
 ## 스킬
 
 ### `guideline-writer` — 집필
@@ -109,19 +157,16 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 쪽에서 시작하며 거기가 1쪽입니다. 마지막은 판권지입니다.
 
 ```bash
-python skills/guideline-design/render.py 원고.md --theme nis    # 조판
-# 인쇄(브라우저) → 1차.pdf
-python skills/guideline-design/book.py  dist/1차.pdf --out dist/책.pdf
-python skills/guideline-design/toc.py   dist/책.pdf --source 원고.md --skip 8
-python skills/guideline-design/render.py 원고.md --theme nis --toc dist/toc.json
-# 다시 인쇄 → book.py 다시
-python skills/guideline-design/paginate.py dist/책.pdf --style bottom \
-  --skip 8 --start 1 --end 1 --head --title "문서명"
+python skills/guideline-design/publish.py 원고.md --theme nis
 ```
 
+한 명령이 일곱 단계를 돌립니다. 단계별로 따로 부르고 싶으면
+[SKILL.md](skills/guideline-design/SKILL.md) 에 `render` · `book` · `toc` ·
+`paginate` · `coverart` 를 각각 쓰는 법이 있습니다.
+
 목차 쪽번호 때문에 **두 번 인쇄합니다.** 조판하기 전에는 쪽을 알 수 없습니다.
-빈 쪽도 원고에 박지 않고 `book.py` 가 인쇄한 뒤에 필요한 만큼만 끼웁니다 —
-브라우저가 `break-before: recto` 를 무시하기 때문입니다.
+빈 쪽도 원고에 박지 않고 인쇄한 뒤에 필요한 만큼만 끼웁니다 — 브라우저가
+`break-before: recto` 를 무시하기 때문입니다.
 
 결과 HTML 은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
 
@@ -195,28 +240,148 @@ korean-skills `style-guide` 에서 구조를 가져와 공문서 관례로 내�
 > 수정하지 않는 것이 원칙이라 손대지 않았습니다 — 자세한 내용은
 > [humanizer/ORIGIN.md](skills/humanizer/ORIGIN.md).
 
-## 쓰는 순서
+## 전체 과정
 
-```
-선행 자료 조사  guideline-writer 0단계  ← 같은 분야 발행물이 있는지
-  ↓
-집필          guideline-writer
-  ↓
-법령 인용 검증  guideline-writer 5단계  ← 조문 원문 대조. 사람이 한다
-  ↓
-기계적 검사    guideline-lint          ← 오류부터 고친다
-  ↓
-문체 일관성    govdoc-style
-  ↓
-맞춤법         grammar-checker
-  ↓
-삽도          guideline-design        ← figplan.py 로 찾고 figures.py 로 그린다
-  ↓
-배포본 조판     guideline-design        ← 원고가 확정된 뒤에 한다
+빈 폴더에서 배포본까지 실제로 가 보면 이렇습니다.
+
+### 1. 같은 분야 발행물이 있는지 먼저 본다
+
+`guideline-writer` 0단계입니다. 이미 나온 자료와 겹치면 **중복해서 쓰지 말고
+역할을 나눕니다.** 이 저장소의 예제 원고도 작업 도중에 선행 자료를 발견해
+구조를 다시 짰습니다 — 겹치는 108개 통제를 베끼는 대신 "그 자료를 따른다" 로
+넘기고 ROS 2 고유 부분만 썼습니다.
+
+### 2. 원고를 쓴다
+
+`guideline-writer` 가 골격·통제 ID 체계·등급 매트릭스를 잡아 줍니다.
+
+**한 문단을 한 줄로 씁니다.** 줄바꿈을 넣지 마세요. 검사기가 줄 단위로 보기
+때문에, 한 문단을 여러 줄로 쪼개면 "주기가 없다" 같은 오탐이 납니다. 이미
+쪼개져 있으면 `python skills/guideline-writer/unwrap.py 원고.md` 로 폅니다.
+
+### 3. 쓰는 동안 계속 검사한다
+
+```bash
+python skills/guideline-lint/lint.py 원고.md
 ```
 
-요약본을 함께 낸다면 **장르가 바뀌므로 문체를 통째로 갈고** 검사도 따로
-돌립니다 — `python skills/guideline-lint/lint.py 요약본.md --genre manual`.
+오류부터 고칩니다. 경고는 판단해서, 참고는 무시해도 됩니다. 통제항목을 하나
+더하면 체크리스트·대응표·등급별 항목 수가 함께 밀리므로 **부록은 손으로
+맞추지 말고 본문에서 다시 생성**하세요.
+
+### 4. 법령 인용을 사람이 검증한다
+
+**이 단계는 자동화하지 않습니다.** 조문 원문을 직접 대조하세요. 예제 원고를
+만들며 정부 발행물에서 그대로 옮겨 온 인용 오류 2건을 찾았습니다 — 인용은
+베끼면 틀린 채로 퍼집니다. [법령 조문을 확인하는 도구](#법령-조문을-확인하는-도구)
+를 보세요.
+
+### 5. 문체와 맞춤법을 본다
+
+```bash
+# govdoc-style · grammar-checker — Claude Code 에서 스킬로 부릅니다
+```
+
+요약본을 함께 낸다면 **장르가 바뀌므로 문체를 통째로 갑니다.** 본문은
+`~한다`, 요약본은 `~합니다` 이고 번호 체계도 바뀝니다. 검사도 따로 돌립니다 —
+`lint.py 요약본.md --genre manual`.
+
+### 6. 삽도가 필요한 곳을 본다
+
+```bash
+python skills/guideline-design/figplan.py 원고.md --mode review
+```
+
+후보를 짚어 주면 **정말 필요한지 사람이 판단합니다.** 예제 원고에서는 여섯 곳
+중 다섯이 이미 표로 설명돼 있어 그리지 않았습니다. 표로 충분하면 그리지
+않습니다 — 같은 내용을 두 번 보이면 어느 쪽이 정본인지 헷갈리고, 원고가 바뀔 때
+한쪽만 고쳐집니다.
+
+명세를 채우고 그립니다. **도구가 혼자 노드와 연결을 지어내지 못하게** 명세를
+사람이 채우는 구조입니다 — 원고에 없는 구성요소를 그린 도식은 그럴듯해서 더
+위험합니다.
+
+```bash
+python skills/guideline-design/figplan.py 원고.md --mode auto --plan 계획.json
+python skills/guideline-design/figplan.py 원고-삽도.md --verify
+```
+
+`auto` 는 `<이름>-삽도.md` 를 새로 씁니다. 쓰기로 했다면 **원본 자리로
+올리세요.** 원고가 둘이면 곧 어느 쪽이 정본인지 헷갈립니다.
+
+### 7. 배포본을 뽑는다
+
+```bash
+python skills/guideline-design/publish.py 원고.md --theme nis
+```
+
+원고가 확정된 뒤에 합니다. 조판은 원고를 고치지 않습니다.
+
+## 기관에 맞추기
+
+### 기존 발행물에서 테마 뽑기
+
+기관이 이미 펴낸 책이 있으면 거기서 재서 테마를 만듭니다.
+
+```bash
+python skills/guideline-design/themegen.py 기관_작년_가이드라인.pdf --key ourorg
+python skills/guideline-design/publish.py 원고.md --theme ourorg
+```
+
+판면·여백·본문 크기·색을 재서 `themes/ourorg.py` 를 씁니다. **뼈대일 뿐이니
+열어서 손보세요.** 주조색 후보를 주석에 적어 두니 한 줄 바꿔 끼우면 됩니다.
+
+값 몇 개만 바꿀 때는 파일을 만들지 않아도 됩니다.
+
+```bash
+python skills/guideline-design/publish.py 원고.md --theme nis \
+  --theme-set accent=#1b3a6b --theme-set body=10.2
+```
+
+### 기관 로고
+
+원고 폴더에 `logos/` 를 만들고 기관이 준 파일(SVG·PNG)을 넣으면 표지에
+올라갑니다. 폴더가 없으면 아무것도 그리지 않습니다.
+
+**로고를 지어내지 않습니다.** 정부기관 로고를 만들어 붙이는 것은 위조입니다.
+
+## 자주 걸리는 곳
+
+만들면서 실제로 걸렸던 것들입니다.
+
+**판면을 A4 로 잡는다.** 가장 흔한 실수입니다. 측정한 20종 중 A4 는 6종뿐이고
+전부 6쪽짜리 지침이나 훈령입니다. 본체 가이드라인은 **188×257mm** 가
+중앙값입니다. 본문에 명조를 쓴 문서는 하나도 없고, 여백은 좌우가 상하보다
+넓습니다.
+
+**원고를 여러 줄로 쪼갠다.** 검사기가 줄 단위로 봅니다. 한 문단을 한 줄로
+쓰세요. `unwrap.py` 가 펴 줍니다.
+
+**문단이 `[표 2-3]은 …` 으로 시작한다.** 캡션으로 오인될 수 있습니다. 캡션은
+`[표 2-3] 제목` 처럼 **닫는 괄호 뒤에 공백**이 옵니다. 조판기는 이 규칙으로
+가르지만, 원고를 쓸 때도 참조와 캡션을 섞지 마세요.
+
+**원고가 둘이 된다.** `figplan --mode auto` 는 원본을 지키려고 새 파일을
+씁니다. 쓰기로 했으면 원본 자리로 올리세요. 둘을 놔두면 곧 어느 쪽이 정본인지
+헷갈립니다.
+
+**Chrome 을 못 찾는다.** `--chrome` 으로 경로를 주세요. Edge 도 됩니다.
+
+**통제항목 수가 맞지 않는다.** 배포본을 뽑을 때 `통제항목 156 / 156` 이
+나옵니다. 숫자가 다르면 표가 잘렸거나 부록이 본문과 어긋난 것입니다.
+
+**목차 쪽번호가 비어 있다.** 두 번 인쇄해야 나옵니다. `publish.py` 가 알아서
+합니다. 단계별로 부를 때는 `toc.py` 를 건너뛰지 마세요.
+
+**테마를 만들 때** — 음수 여백으로 색을 종이 끝까지 보내면 **글자가 잘립니다.**
+색 바탕에 `print-color-adjust: exact` 가 없으면 인쇄에서 사라집니다. CSS 에
+`%` 서식을 쓰면 터집니다. 자세한 것은
+[테마 만들기](skills/guideline-design/themes/README.md).
+
+**조판은 글로 검사되지 않습니다.** 만들고 끝내지 말고 **인쇄해서 보세요.** 이
+저장소를 만드는 동안 눈으로만 잡힌 결함이 여럿이었고, 어느 것도 도구가 오류를
+내지 않았습니다 — 잘린 제목, 캡션에 먹힌 문단, 빈 간지, 쪽번호 없는 90쪽
+문서.
 
 ## 규칙
 

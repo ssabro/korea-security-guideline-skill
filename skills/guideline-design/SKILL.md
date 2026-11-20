@@ -17,6 +17,21 @@ allowed-tools: Read Bash Grep Glob Edit Write
 [발행본 디자인 측정값](references/publication-design.md)에 있습니다. **테마를 새로
 만들거나 수치를 고치기 전에 그 문서를 먼저 읽으세요.**
 
+## 한 번에 뽑기
+
+단계를 하나씩 부르기 전에, 보통은 이것 하나면 됩니다.
+
+```bash
+python publish.py 원고.md --theme nis
+python publish.py 원고.md --theme art --theme-set motif=network
+```
+
+조판·인쇄·책 구성·목차 쪽번호·검증·쪽번호·표지 아트워크를 차례로 돌리고,
+도구끼리 `--skip` 값을 주고받습니다. 100쪽 문서에 30초쯤 걸립니다.
+
+아래는 **단계별로 따로 부를 때** 읽으세요 — 테마를 만들거나, 중간에 손을 대거나,
+무엇이 어떻게 도는지 알아야 할 때입니다.
+
 ## 하는 일
 
 ```
@@ -294,6 +309,7 @@ grep -c '^\s*|' dist/nis.html                               # 변환 못 한 표
 
 | 파일 | 하는 일 |
 |---|---|
+| `publish.py` | **원고 → 배포본 PDF. 아래 도구를 차례로 돌린다** |
 | `render.py` | 원고 → 배포용 HTML. 테마 등록·목차 쪽번호 주입 |
 | `book.py` | 인쇄본을 책 구성에 맞춘다. 빈 쪽을 끼우고 앞붙이 쪽수를 알려 준다 |
 | `toc.py` | 인쇄본에서 장·절 시작 쪽을 읽어 목차 쪽번호를 만든다 |

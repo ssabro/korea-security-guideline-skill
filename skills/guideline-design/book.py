@@ -86,6 +86,31 @@ def find_body(doc, mark: str, start: int = 1, head: int = 44) -> int:
     return -1
 
 
+def apply(src: str, out: str, marks: list) -> tuple:
+    """빈 쪽을 끼워 책 구성에 맞춘다. (앞붙이 쪽수, 끼운 빈 쪽, 전체 쪽수).
+
+    `publish.py` 가 쓴다. 명령줄 출력을 글자로 긁지 않고 값으로 받게 한다.
+    """
+    doc = fitz.open(src)
+    added = 0
+    for n in range(len(marks)):
+        found = find_marks(doc, marks[:n + 1])
+        p = found[n]
+        if p is None or (p + 1) % 2 != 0:
+            continue
+        doc.new_page(pno=p, width=doc[p].rect.width, height=doc[p].rect.height)
+        added += 1
+    lead = find_marks(doc, marks[:-1]) if len(marks) > 1 else []
+    after = max([p for p in lead if p is not None], default=0) + 1
+    body = find_body(doc, marks[-1] if marks else '제1장', after)
+    if body < 0:
+        body = find_body(doc, marks[-1] if marks else '제1장', 1)
+    doc.save(out, deflate=True, garbage=3)
+    n = doc.page_count
+    doc.close()
+    return (max(body, 0), added, n)
+
+
 def main(argv: list) -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument('source')
