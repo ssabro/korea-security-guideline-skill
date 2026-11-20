@@ -10,7 +10,7 @@
    `반기 1회 이상` 이 다른 줄에 떨어져 주기를 적었는데도 지적을 받는다.
    문단을 한 줄로 쓰면 "같은 줄"이 곧 "같은 문단"이 된다.
 
-표 행, 코드 블록, 제목은 건드리지 않는다. 목록 항목은 들여써서 이어지는 줄을
+YAML 머리말, 표 행, 코드 블록, 제목은 건드리지 않는다. 목록 항목은 들여써서 이어지는 줄을
 항목 본문에 붙여 한 줄로 만든다. 공백 외의 글자가 바뀌지 않았는지 검증한 뒤에
 파일을 덮어쓴다.
 
@@ -34,16 +34,26 @@ LIST_HEAD = re.compile(
 
 
 def unwrap(text: str) -> str:
-    out: list[str] = []
-    buf: list[str] = []
+    out = []
+    buf = []
     fence = False
+    lines = text.split(chr(10))
+    # YAML 머리말(`---` 로 열고 닫는 첫 블록)은 건드리지 않는다. 한 줄로
+    # 뭉개면 `--- name: … description: … ---` 이 되어 스킬 정의가 깨지고
+    # Claude Code 가 그 스킬을 읽지 못한다.
+    front = bool(lines) and lines[0].rstrip() == "---"
 
     def flush() -> None:
         if buf:
             out.append(" ".join(buf))
             buf.clear()
 
-    for raw in text.split("\n"):
+    for i, raw in enumerate(lines):
+        if front:
+            out.append(raw)
+            if i > 0 and raw.rstrip() == "---":
+                front = False
+            continue
         if raw.lstrip().startswith("```"):
             flush()
             out.append(raw)
