@@ -154,6 +154,17 @@ FIGURATIVE = [
     (r"무너지|무너뜨", "훼손된다"),
     (r"켜지 않|켜면|켜고|꺼진", "활성화·비활성화"),
     (r"찍는다|찍어", "표시한다"),
+    (r"몰려 있|몰린다", "집중되어 있다"),
+    (r"다녀도|다닌다", "운용되더라도"),
+    (r"버린다|버리고", "적용하지 않는다"),
+    (r"넘어간다|넘어가면", "탈취될 수 있다"),
+    (r"드러난다", "확인된다"),
+    (r"낳는다|낳아", "가진다"),
+    (r"걸린다", "적용된다·소요된다"),
+    (r"을 타면|를 타면", "을 통해 배포되면"),
+    (r"발판", "경유지"),
+    (r"잠그면|잠근다", "해제할 수 없도록 설정하면"),
+    (r"풀리|풀면|푼다", "해제되면"),
 ]
 RX_FIGURATIVE = [(re.compile(p), s) for p, s in FIGURATIVE]
 
@@ -169,6 +180,11 @@ COUNT_WORD = {"두": 2, "세": 3, "네": 4, "다섯": 5, "2": 2, "3": 3, "4": 4,
 
 # 가운뎃점 뒤의 공백
 RX_MIDDOT_SPACE = re.compile(r"[가-힣A-Za-z0-9]·[ \t]+[가-힣A-Za-z0-9]")
+
+# 긴 대시로 부연을 잇는 버릇. 코퍼스 20종은 1천 줄당 0.3회뿐이고(20종 중
+# 2종만 쓴다) 가장 많이 쓴 문서도 9.3회다. 그보다 훨씬 잦으면 알린다.
+RX_EM_DASH = re.compile("\u2014")
+EM_DASH_PER_1000 = 15.0
 
 RX_CAPTION_SQ = re.compile(r"\[(?:표|그림)\s?[\d\-–.]+\]")
 RX_CAPTION_AN = re.compile(r"<(?:표|그림)\s?[\d\-–.]+>")
@@ -492,6 +508,16 @@ def check_style(doc: Doc) -> None:
                             "'%s' 처럼 상태나 영향을 그대로 적으세요. "
                             "코퍼스 20종에 이 표현은 없습니다." % better)
 
+    body = body_lines(doc)
+    nonblank = [l for _, l in body if l.strip()]
+    hits = [n for n, l in body if RX_EM_DASH.search(l)]
+    if nonblank and len(hits) / len(nonblank) * 1000 > EM_DASH_PER_1000:
+        doc.add_agg("EM-DASH", "warn", hits,
+                    "긴 대시(—)로 부연을 잇는 문장이 %d줄입니다 "
+                    "(1천 줄당 %.0f회)" % (len(hits), len(hits) / len(nonblank) * 1000),
+                    "코퍼스 20종은 1천 줄당 0.3회입니다. 부연은 쉼표로 잇거나 "
+                    "문장을 나누세요.")
+
     doc.add_agg("MONEY-SPACE", "warn",
                 [n for n, l in body_lines(doc) if RX_MONEY.search(unquoted(l))],
                 "금액 단위 '원' 을 앞말에 붙였습니다",
@@ -814,6 +840,7 @@ ALIAS = {
     "MONEY-SPACE": "STYLE",
     "MIDDOT-SPACE": "STYLE",
     "COUNT-MISMATCH": "STYLE",
+    "EM-DASH": "STYLE",
     "PARTICLE-SPACE": "NOTATION",
     "HEADING-SKIP": "HEADINGS",
     "HEADING-DEPTH": "HEADINGS",
