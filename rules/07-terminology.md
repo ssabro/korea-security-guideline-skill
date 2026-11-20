@@ -67,7 +67,7 @@
 
 ## 약어
 
-코퍼스에서 풀네임과 함께 도입된 약어 94종 중, 보안 가이드라인에서 재사용 가치가 있는 것들입니다. 전체 목록은 `python tools/analyze_corpus.py` 로 재추출할 수 있습니다.
+코퍼스에서 풀네임과 함께 도입된 약어 94종 중, 보안 가이드라인에서 재사용 가치가 있는 것들입니다. 전체 목록은 `python tools/analyze_corpus.py`로 재추출할 수 있습니다.
 
 표의 풀네임은 **표준 표기로 정규화**했습니다. 코퍼스에는 `Identity Access Management`(IAM), `Common Vulnerabilities Exposures`(CVE), `De-Militarized Zone`(DMZ), `SW Bill of Materials`(SBOM)처럼 접속사가 빠지거나 줄인 형태가 섞여 있습니다. 새 문서에는 표준 표기를 쓰세요. `†` 표시는 코퍼스에 약어는 나오지만 풀네임 병기가 없어 외부 표준에서 가져온 항목입니다.
 
@@ -154,7 +154,7 @@
 
 ## 약어를 쓸 때
 
-1. **첫 등장에 풀네임을 병기합니다** — `SBOM(Software Bill of Materials)`. 06-notation.md 의 병기 형태 중 하나로 통일.
+1. **첫 등장에 풀네임을 병기합니다** — `SBOM(Software Bill of Materials)`. 06-notation.md의 병기 형태 중 하나로 통일.
 2. **약어가 10개를 넘으면 부록에 약어표를 둡니다.** 코퍼스 5/20 문서가 그렇습니다.
 3. **국문 번역어가 정착된 것은 국문을 본문에, 약어를 괄호에 둡니다** — `다중요소 인증(MFA)`. 정착되지 않은 것은 약어를 본문에 둡니다 — `SBOM`.
 4. **국내 제도 약어는 풀네임보다 국문 명칭이 먼저입니다** — `암호모듈 검증제도(KCMVP)`.

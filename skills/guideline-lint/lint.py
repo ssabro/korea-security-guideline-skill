@@ -123,6 +123,45 @@ def unquoted(line: str) -> str:
     return RX_QUOTED.sub(" ", RX_INLINE_CODE.sub(" ", line))
 
 RX_LOCATION_REF = re.compile(r"(?:아래|위|다음|상기|하기)\s*(?:의\s*)?(?:표|그림|도표|그래프)")
+# 조사는 앞말에 붙여 쓴다(한글 맞춤법). 영문·숫자·닫는 괄호·인라인 코드
+# 뒤에서 자주 깨진다 — `PDF 까지`, `A4 는`. 조사 뒤에 다른 글자가 이어지면
+# 조사가 아니므로(`SVG 로드`, `API 가능`) 경계를 본다.
+RX_PARTICLE_SPACE = re.compile(
+    r"[A-Za-z0-9\)\]`]\s+"
+    r"(?:은|는|이|가|을|를|의|에|와|과|로|으로|까지|부터|만|도|에서|에는|에도)"
+    r"(?=[\s,.·)\]]|$)")
+
+# 비유적·구어적 표현과 권장 표현. 코퍼스 20종에서 **한 번도 나오지 않는**
+# 말만 골랐다(`고리` 처럼 다른 낱말의 일부가 되는 것은 뺐다).
+FIGURATIVE = [
+    (r"메운다|메우는|메울", "보완한다"),
+    (r"흔들리|흔들린", "영향을 받는다"),
+    (r"번진다|번지는|번질", "확산된다"),
+    (r"박혀 있|박힌", "하드코딩되어 있다"),
+    (r"멀쩡", "정상 동작한다"),
+    (r"값싼|값싸", "비용이 적게 드는"),
+    (r"울타리", "관리구역 경계"),
+    (r"갈래", "유형"),
+    (r"통째로", "전부"),
+    (r"무너지|무너뜨", "훼손된다"),
+    (r"켜지 않|켜면|켜고|꺼진", "활성화·비활성화"),
+    (r"찍는다|찍어", "표시한다"),
+]
+RX_FIGURATIVE = [(re.compile(p), s) for p, s in FIGURATIVE]
+
+# 금액 단위 — `원` 은 앞말과 띄어 쓴다. 코퍼스는 띄움 3 · 붙임 0.
+RX_MONEY = re.compile(r"(?<=[0-9억만천백])원")  # 5천만원 → 5천만 원
+
+# `N 가지` 를 선언하고 그보다 큰 서수를 쓴 곳
+RX_COUNT_DECL = re.compile(r"(두|세|네|다섯|2|3|4|5)\s*가지")
+ORD_WORD = {"첫": 1, "둘": 2, "두": 2, "셋": 3, "세": 3, "넷": 4, "네": 4,
+            "다섯": 5}
+RX_ORDINAL = re.compile(r"(첫|둘|두|셋|세|넷|네|다섯)\s*(?:째|번째)")
+COUNT_WORD = {"두": 2, "세": 3, "네": 4, "다섯": 5, "2": 2, "3": 3, "4": 4, "5": 5}
+
+# 가운뎃점 뒤의 공백
+RX_MIDDOT_SPACE = re.compile(r"[가-힣A-Za-z0-9]·[ \t]+[가-힣A-Za-z0-9]")
+
 RX_CAPTION_SQ = re.compile(r"\[(?:표|그림)\s?[\d\-–.]+\]")
 RX_CAPTION_AN = re.compile(r"<(?:표|그림)\s?[\d\-–.]+>")
 
@@ -431,6 +470,83 @@ def check_vague_cycle(doc: Doc) -> None:
                 "아직 요구사항이 아니라 권고입니다.")
 
 
+def check_style(doc: Doc) -> None:
+    """발행본 문체에서 벗어난 표현과 표기.
+
+    실무 안내서(경어체)는 친근한 말이 자연스러우므로 비유 표현 검사에서 뺀다.
+    """
+    if doc.genre != "manual":
+        for rx, better in RX_FIGURATIVE:
+            hits = [n for n, l in body_lines(doc) if rx.search(l)]
+            if hits:
+                doc.add_agg("FIGURATIVE", "warn", hits,
+                            "발행본에 드문 비유적·구어적 표현입니다",
+                            "'%s' 처럼 상태나 영향을 그대로 적으세요. "
+                            "코퍼스 20종에 이 표현은 없습니다." % better)
+
+    doc.add_agg("MONEY-SPACE", "warn",
+                [n for n, l in body_lines(doc) if RX_MONEY.search(l)],
+                "금액 단위 '원' 을 앞말에 붙였습니다",
+                "단위 명사는 띄어 씁니다 — '5천만원' 이 아니라 '5천만 원'.")
+
+    doc.add_agg("MIDDOT-SPACE", "info",
+                [n for n, l in body_lines(doc) if RX_MIDDOT_SPACE.search(l)],
+                "가운뎃점 뒤에 공백이 있습니다",
+                "'휴대형· 부착거치형' 이 아니라 '휴대형·부착거치형' 입니다.")
+
+    # 'N 가지' 를 선언하고 그보다 큰 서수를 쓴 곳 — 문단 안에서 본다
+    bad = []
+    declared = 0
+    for n, l in body_lines(doc):
+        m = RX_COUNT_DECL.search(l)
+        if m:
+            declared = COUNT_WORD.get(m.group(1), 0)
+            continue
+        if not declared:
+            continue
+        for om in RX_ORDINAL.finditer(l):
+            if ORD_WORD.get(om.group(1), 0) > declared:
+                bad.append(n)
+                declared = 0
+                break
+    doc.add_agg("COUNT-MISMATCH", "warn", bad,
+                "'N 가지' 라고 적고 그보다 많이 늘어놓았습니다",
+                "선언한 수와 실제 항목 수를 맞추세요.")
+
+
+def check_id_order(doc: Doc) -> None:
+    """한 표 안에서 통제항목 ID 번호가 뒤섞인 곳.
+
+    일부러 업무 순서로 배치했을 수 있으므로 참고로만 알린다.
+    """
+    bad = []
+    run: list = []
+    start = 0
+    for n, l in body_lines(doc):
+        ids = RX_ID_OK.findall(l) if "RX_ID_OK" in globals() else []
+        m = re.match(r"^\|\s*([A-Z][A-Z0-9]{1,7}-[A-Z]{2})-(\d{1,3})", l.strip())
+        if m:
+            if not run:
+                start = n
+            run.append((m.group(1), int(m.group(2))))
+            continue
+        if len(run) >= 3:
+            dom = run[0][0]
+            nums = [v for d, v in run if d == dom]
+            if len(nums) >= 3 and nums != sorted(nums):
+                bad.append(start)
+        run = []
+    if len(run) >= 3:
+        dom = run[0][0]
+        nums = [v for d, v in run if d == dom]
+        if len(nums) >= 3 and nums != sorted(nums):
+            bad.append(start)
+    doc.add_agg("ID-ORDER", "info", bad,
+                "표 안에서 통제항목 번호가 오름차순이 아닙니다",
+                "업무 순서로 일부러 배치했다면 그대로 두세요. "
+                "아니면 행 순서를 번호에 맞추는 편이 찾기 쉽습니다.")
+
+
 def check_notation(doc: Doc) -> None:
     """꺾쇠·캡션·가운뎃점 표기의 혼용."""
     sq = [n for n, l in body_lines(doc) if "｢" in l]      # ｢
@@ -446,6 +562,12 @@ def check_notation(doc: Doc) -> None:
         doc.add_agg("CAPTION-MIX", "warn", cs if len(cs) <= len(ca) else ca,
                     f"표·그림 캡션이 섞였습니다 — [표 N] {len(cs)}줄 / <표 N> {len(ca)}줄",
                     "하나로 통일하세요. 코퍼스에서는 [표 N] 이 우세합니다.")
+
+    doc.add_agg("PARTICLE-SPACE", "warn",
+                [n for n, l in body_lines(doc) if RX_PARTICLE_SPACE.search(l)],
+                "조사를 앞말에서 띄웠습니다",
+                "조사는 앞말에 붙여 씁니다 — 'PDF 까지' 가 아니라 'PDF까지'. "
+                "코퍼스는 58 대 1 로 붙여 씁니다.")
 
     doc.add_agg("MIDDOT", "warn",
                 [n for n, l in body_lines(doc) if RX_MIDDOT_BAD.search(unquoted(l))],
@@ -667,6 +789,8 @@ CHECKS = {
     "CHECKLIST": check_checklist,
     "FIGURE-NONE": check_figures,
     "GRADE-COUNT": check_grade_count,
+    "STYLE": check_style,
+    "ID-ORDER": check_id_order,
 }
 
 # 한 검사가 여러 코드를 낼 수 있으므로 --only 용 별칭을 둔다
@@ -678,6 +802,11 @@ ALIAS = {
     "CAPTION-MIX": "NOTATION",
     "MIDDOT": "NOTATION",
     "LOCATION-REF": "NOTATION",
+    "FIGURATIVE": "STYLE",
+    "MONEY-SPACE": "STYLE",
+    "MIDDOT-SPACE": "STYLE",
+    "COUNT-MISMATCH": "STYLE",
+    "PARTICLE-SPACE": "NOTATION",
     "HEADING-SKIP": "HEADINGS",
     "HEADING-DEPTH": "HEADINGS",
     "HEADING-GAP": "HEADING-SEQ",
