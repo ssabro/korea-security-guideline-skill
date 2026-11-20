@@ -78,7 +78,10 @@ try:
 except Exception:
     pass
 
-RX_CAP = re.compile(r'^\[(표|그림)\s*([\d\-–.]+)\]\s*(.*)$')
+# 캡션은 `[표 2-3] 제목` 꼴이다. `[표 2-3]은 …` 처럼 조사가 바로 붙으면 캡션이
+# 아니라 그 표를 가리키는 문단이므로, 닫는 괄호 뒤의 **공백을 반드시 요구한다.**
+# 공백을 선택으로 두면 문단 첫머리가 캡션 배지로 먹힌다.
+RX_CAP = re.compile(r'^\[(표|그림)\s*([\d\-–.]+)\](?:\s+(\S.*))?$')
 RX_IMG = re.compile(r'^!\[([^\]]*)\]\(([^)]+)\)\s*$')
 RX_H = re.compile(r'^(#{1,6})\s+(.+)$')
 RX_LI = re.compile(r'^(\s*)-\s+(.+)$')
@@ -159,6 +162,52 @@ def split_front(md: str) -> tuple:
     return title, meta, chr(10).join(lines[start:])
 
 
+def split_sections(rest: str) -> tuple:
+    """발간 정보 · 목차 · 본문으로 가른다.
+
+    앞의 둘은 앞붙이 쪽에 따로 앉히고, 본문만 흐름에 태운다.
+    """
+    lines = rest.split(chr(10))
+    toc_at = next((i for i, l in enumerate(lines)
+                   if re.match(r'^#+\s*목차\s*$', l)), None)
+    body_at = next((i for i, l in enumerate(lines) if l.startswith('# ')), None)
+    if toc_at is None or body_at is None:
+        return '', '', rest
+    info = chr(10).join(lines[:toc_at])
+    toc = chr(10).join(lines[toc_at:body_at])
+    body = chr(10).join(lines[body_at:])
+    return info, toc, body
+
+
+def front_matter(title: str, meta: dict, kind_css: str,
+                 info_html: str, toc_html: str) -> str:
+    """책 앞붙이. 쪽 차례는 발행본 관행을 따른다.
+
+    1 표지 · 2 빈 쪽 · 3 속표지 · 4 빈 쪽 · 5 문서 정보 · 6 빈 쪽 · 7 목차
+    """
+    blank = '<section class="blank">&nbsp;</section>'
+    return (cover(title, meta, kind_css)
+            + blank
+            + '<section class="halftitle"><h1>%s</h1></section>' % inline(title)
+            + blank
+            + '<section class="docinfo">%s</section>' % info_html
+            + blank
+            + '<section class="tocpage">%s</section>' % toc_html)
+
+
+def colophon(title: str, meta: dict) -> str:
+    """판권지. 책 마지막 쪽에 제목과 발행 정보를 둔다."""
+    rows = [(k, meta[k]) for k in
+            ('문서 종류', '발행기관', '발간등록번호', '원고 버전', '작성 기준일', '문의처')
+            if meta.get(k)]
+    cells = ''.join('<tr><th>%s</th><td>%s</td></tr>' % (esc(k), inline(v))
+                    for k, v in rows)
+    return ('<section class="colophon">'
+            '<p class="colt">%s</p>'
+            '<table class="colt-t"><tbody>%s</tbody></table>'
+            '</section>' % (inline(title), cells))
+
+
 def cover(title: str, meta: dict, kind_css: str = 'rule') -> str:
     """발행본 표지. 기관이 채울 칸은 원고의 값을 그대로 보여 준다."""
     kind = meta.get('문서 종류', '')
@@ -217,6 +266,17 @@ def convert(md: str, base: str, mark: str, pages: dict = None) -> str:
         if m:
             close_lists()
             lv, txt = len(m.group(1)), m.group(2).strip()
+            if lv == 1 and txt == '부록':
+                out.append('<section class="chapter"><h1>부록</h1></section>')
+                i += 1
+                continue
+            mm = re.match(r'^부록\s*(\d+)\s+(.+)$', txt)
+            if lv == 2 and mm:
+                out.append('<h2 class="apx"><span class="bdg">부록 %s</span>'
+                           '<span class="ht">%s</span></h2>'
+                           % (mm.group(1), inline(mm.group(2))))
+                i += 1
+                continue
             mm = re.match(r'^제(\d+)장\s+(.+)$', txt)
             if lv == 1 and mm:
                 out.append('<section class="chapter"><p class="chno">제%s장</p>'
@@ -236,12 +296,14 @@ def convert(md: str, base: str, mark: str, pages: dict = None) -> str:
             continue
 
         m = RX_CAP.match(s)
+        if m and (m.group(3) or '').rstrip().endswith('다.'):
+            m = None  # 문장이다. 캡션은 마침표로 끝나지 않는다
         if m:
             close_lists()
             kind = 'fig' if m.group(1) == '그림' else 'tbl'
             pending_cap = ('<p class="cap cap-%s"><span class="capn">%s %s</span>'
                            '<span class="capt">%s</span></p>'
-                           % (kind, m.group(1), m.group(2), inline(m.group(3))))
+                           % (kind, m.group(1), m.group(2), inline(m.group(3) or '')))
             out.append(pending_cap)
             i += 1
             continue
@@ -379,6 +441,21 @@ h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
 /* 바탕형 — 연한 색을 전면에 깐다. ｢SIEM·SOAR 지침｣ 계열 */
 .cv-tint{background:var(--tint);border-top:4mm solid var(--accent);padding:0 14mm}
 
+.blank{break-after:page;height:1px;overflow:hidden}
+.halftitle{break-after:page;display:flex;align-items:center;justify-content:center;
+ min-height:%(coverh)smm;text-align:center}
+.halftitle h1{font-size:1.5em;font-weight:800;line-height:1.4;letter-spacing:-.02em}
+.docinfo{break-after:page}
+.tocpage{break-before:page;break-after:page}
+.colophon{break-before:page;display:flex;flex-direction:column;justify-content:flex-end;
+ min-height:%(coverh)smm}
+.colt{font-size:1.15em;font-weight:800;line-height:1.45;margin:0 0 1.1em;
+ padding-bottom:.7em;border-bottom:3px solid var(--accent)}
+.colt-t{width:100%%;border-collapse:collapse;font-size:.92em}
+.colt-t th{width:30mm;text-align:left;font-weight:700;border:0;padding:.35em .4em .35em 0;
+ background:none;color:var(--soft)}
+.colt-t td{border:0;padding:.35em 0}
+h2.apx{break-before:page}
 .toch{margin-bottom:.7em}
 .toc{margin:0 0 .25em;padding-left:1.4em;color:var(--soft);font-size:.95em;
  display:flex;align-items:baseline;gap:.4em}
@@ -416,6 +493,8 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
 @media print{body{background:#fff}
  .cover{min-height:%(h)smm;height:%(h)smm;margin:0;break-after:page;
   -webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .halftitle,.colophon{min-height:%(coverp)smm;height:%(coverp)smm}
+ .blank{height:%(coverp)smm}
  .sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
  .rh{display:none}
  .chapter{%(brk)s}
@@ -432,8 +511,13 @@ def build(md: str, base: str, key: str, title: str, pages: dict = None) -> str:
     t = THEMES[key]
     mark = '■' if key == 'print' else '●'
     doctitle, meta, rest = split_front(md)
-    body = (cover(doctitle or title, meta, t.get('cover', 'rule'))
-            + convert(rest, base, mark, pages))
+    name = doctitle or title
+    info_md, toc_md, body_md = split_sections(rest)
+    body = (front_matter(name, meta, t.get('cover', 'rule'),
+                         convert(info_md, base, mark, pages),
+                         convert(toc_md, base, mark, pages))
+            + convert(body_md, base, mark, pages)
+            + colophon(name, meta))
     return """<!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">

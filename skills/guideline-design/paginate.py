@@ -53,7 +53,8 @@ def pick_font(path=None):
     return 'korea', None
 
 
-def paginate(src, dst, title, style, skip, start, margin, gray, fontpath=None):
+def paginate(src, dst, title, style, skip, start, margin, gray, fontpath=None,
+             end=0, head=False):
     doc = fitz.open(src)
     fname, ffile = pick_font(fontpath)
     measure = fitz.Font(fontfile=ffile) if ffile else fitz.Font('korea')
@@ -62,8 +63,9 @@ def paginate(src, dst, title, style, skip, start, margin, gray, fontpath=None):
     m = margin * PT
     n = 0
 
+    last = doc.page_count - end
     for i, page in enumerate(doc):
-        if i < skip:
+        if i < skip or i >= last:
             continue
         num = i - skip + start
         w, h = page.rect.width, page.rect.height
@@ -81,6 +83,13 @@ def paginate(src, dst, title, style, skip, start, margin, gray, fontpath=None):
         tw = measure.text_length(label, fontsize=size)
         x = m if outer_left else w - m - tw
         page.insert_text((x, y), label, fontname=fname, fontsize=size, color=col)
+        if head and style == 'bottom' and title:
+            hy = m * 0.62
+            hw = measure.text_length(title, fontsize=7.5)
+            hx = m if not outer_left else w - m - hw
+            page.insert_text((hx, hy), title, fontname=fname, fontsize=7.5, color=col)
+            page.draw_line(fitz.Point(m, hy + 3.2), fitz.Point(w - m, hy + 3.2),
+                           color=rule, width=0.5)
         if style == 'top':
             page.draw_line(fitz.Point(m, y + 3.2), fitz.Point(w - m, y + 3.2),
                            color=rule, width=0.5)
@@ -103,6 +112,10 @@ def main(argv: list) -> int:
     ap.add_argument('--margin', type=float, default=13.0, help='가장자리 여백 mm.')
     ap.add_argument('--gray', type=float, default=0.42, help='글자 밝기 0~1.')
     ap.add_argument('--font', default=None, help='한글 글꼴 파일 경로(.ttf/.otf).')
+    ap.add_argument('--end', type=int, default=0,
+                    help='번호를 넣지 않을 뒤쪽 수. 판권지가 있으면 1.')
+    ap.add_argument('--head', action='store_true',
+                    help='아래 번호와 함께 위쪽에 문서명을 적는다.')
     a = ap.parse_args(argv)
 
     if not os.path.exists(a.source):
@@ -113,7 +126,7 @@ def main(argv: list) -> int:
         print('원본을 덮어쓰지 않는다. --out 으로 다른 이름을 준다.')
         return 2
     n = paginate(a.source, out, a.title, a.style, a.skip, a.start, a.margin,
-                 a.gray, a.font)
+                 a.gray, a.font, a.end, a.head)
     print('%s  (%d쪽에 번호)' % (out, n))
     return 0
 
