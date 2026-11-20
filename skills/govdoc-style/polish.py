@@ -32,6 +32,12 @@
 뜻이 문맥에 따라 갈리는 말도 넣지 않았습니다. `걸린다` 는 '시간이 걸린다'
 (소요된다)와 '보안이 걸린다'(적용된다)가 달라 사람이 봐야 합니다.
 
+## 표기도 고칩니다
+
+조사 띄어쓰기(`PDF 까지` → `PDF까지`), 금액 단위(`5천만원` → `5천만 원`),
+가운뎃점 뒤 공백 — 셋 다 코퍼스가 뒷받침하고 **공백만 바뀌므로** 뜻이 달라질
+여지가 없습니다.
+
 ## 지켜 주지 못하는 것
 
 **법령 조문을 표의 칸에 옮겨 적은 자리는 지켜 주지 못합니다.** `｢ ｣` 안은
@@ -101,6 +107,18 @@ GUARDS = [
     ('등급 표시 ●', re.compile(r'●')),
 ]
 
+# 표기 — 공백만 바뀐다. 코퍼스가 모두 뒷받침한다.
+SPACING = [
+    # 조사는 앞말에 붙여 쓴다 — `PDF 까지` → `PDF까지`
+    (re.compile(r"([A-Za-z0-9\)\]`])[ \t]+"
+                r"((?:은|는|이|가|을|를|의|에|와|과|로|으로|까지|부터|만|도"
+                r"|에서|에는|에도)(?=[\s,.·)\]]|$))"), r"\1\2"),
+    # 금액 단위는 띄어 쓴다 — `5천만원` → `5천만 원`
+    (re.compile(r"(?<=[0-9억만천백])원"), " 원"),
+    # 가운뎃점 뒤에는 공백을 두지 않는다
+    (re.compile(r"([가-힣A-Za-z0-9])·[ \t]+(?=[가-힣A-Za-z0-9])"), r"\1·"),
+]
+
 RX_INLINE = re.compile(r'`[^`]*`')
 RX_LAW = re.compile(r'｢[^｣]*｣')
 RX_CAP = re.compile(r'\[(?:표|그림)\s?[\d\-–.]+\]')
@@ -146,9 +164,17 @@ def polish(text: str) -> tuple:
             if a in body:
                 body = body.replace(a, b)
                 used.append('%s → %s' % (a, b))
+        body = restore(body, keep)
+        # 표기는 자리표시자를 되돌린 **뒤에** 고친다. 조사를 띄우는 일이
+        # 인라인 코드 바로 뒤에서 가장 자주 일어나는데, 자리표시자 상태로는
+        # 그 자리를 볼 수 없다.
+        for rx, to in SPACING:
+            body, k = rx.subn(to, body)
+            if k:
+                used.append('표기 %d곳' % k)
         if used:
-            changes.append((n, restore(before, keep), restore(body, keep), used))
-        out.append(restore(body, keep))
+            changes.append((n, restore(before, keep), body, used))
+        out.append(body)
     return '\n'.join(out), changes
 
 
