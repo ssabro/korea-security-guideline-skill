@@ -31,35 +31,40 @@ THEMES = {
              '188×257mm, 본문 10.5pt, 남색 주조에 하늘색 보조.',
         page=(188, 257), margin=(25, 24, 19, 16), body=10.5,
         ink='#1a1a1a', accent='#24408f', accent2='#006cb7', tint='#e8eef7',
-        rule='#c9d3e2', soft='#5b6670', serif=False, badge='pill', chapter='page'),
+        rule='#c9d3e2', soft='#5b6670', serif=False, badge='pill', chapter='page',
+        cover='rule'),
     'field': dict(
         label='분야별 가이드라인형',
         note='｢지능형 전력망｣·｢병원정보시스템｣ 계열. 183×256mm, 본문 11pt, '
              '청록 보조색과 포인트 주황.',
         page=(183, 256), margin=(33, 32, 37, 17), body=11.0,
         ink='#16202b', accent='#0f4c81', accent2='#11ada9', tint='#e6f3f6',
-        rule='#cdd8e0', soft='#5f6c76', serif=False, badge='tag', chapter='page'),
+        rule='#cdd8e0', soft='#5f6c76', serif=False, badge='tag', chapter='page',
+        cover='band'),
     'control': dict(
         label='통제항목 해설서형',
         note='｢보안통제 항목 해설서｣ 계열. 194×263mm. 표가 지면의 대부분을 차지하므로 '
              '글자를 줄이고 격자를 세운다. 측정값은 8.2pt 이나 화면 가독을 위해 8.6pt 로 둔다.',
         page=(194, 263), margin=(28, 28, 19, 28), body=8.6,
         ink='#111827', accent='#003e7e', accent2='#42b2d2', tint='#eef4fa',
-        rule='#b9c4d2', soft='#64748b', serif=False, badge='square', chapter='inline'),
+        rule='#b9c4d2', soft='#64748b', serif=False, badge='square', chapter='inline',
+        cover='side'),
     'manual': dict(
         label='실무 안내서형',
         note='｢SIEM·SOAR 지침｣ 계열. A4 210×297mm, 하늘색 주조. 짧은 경어체 문서에 쓴다. '
              '측정값은 9pt 이나 화면 가독을 위해 9.5pt 로 둔다.',
         page=(210, 297), margin=(20, 20, 18, 14), body=9.5,
         ink='#0f172a', accent='#006cb7', accent2='#89cada', tint='#cce7f9',
-        rule='#c3d9e8', soft='#5b6670', serif=False, badge='pill', chapter='inline'),
+        rule='#c3d9e8', soft='#5b6670', serif=False, badge='pill', chapter='inline',
+        cover='tint'),
     'print': dict(
         label='흑백 인쇄형',
         note='1색 인쇄와 복사를 전제한다. 색 대신 괘선과 굵기로 구분하고 '
              '등급 표시를 ■ 로 바꾼다.',
         page=(188, 257), margin=(25, 24, 19, 16), body=10.5,
         ink='#000000', accent='#000000', accent2='#000000', tint='#ededed',
-        rule='#000000', soft='#333333', serif=False, badge='square', chapter='page'),
+        rule='#000000', soft='#333333', serif=False, badge='square', chapter='page',
+        cover='rule'),
 }
 
 GOTHIC = ("'Malgun Gothic','맑은 고딕','KoPubWorld돋움체','Noto Sans KR',"
@@ -153,7 +158,7 @@ def split_front(md: str) -> tuple:
     return title, meta, chr(10).join(lines[start:])
 
 
-def cover(title: str, meta: dict) -> str:
+def cover(title: str, meta: dict, kind_css: str = 'rule') -> str:
     """발행본 표지. 기관이 채울 칸은 원고의 값을 그대로 보여 준다."""
     kind = meta.get('문서 종류', '')
     org = meta.get('발행기관', '')
@@ -161,13 +166,15 @@ def cover(title: str, meta: dict) -> str:
     m = re.match(r'\s*(\d{4})\.\s*(\d{1,2})\.', date)
     ym = '%s. %s.' % (m.group(1), m.group(2)) if m else date
     ver = meta.get('원고 버전', '')
-    return ('<section class="cover">'
+    return ('<section class="cover cv-%s">' % kind_css
+            + '<div class="cvtop">'
             + ('<p class="ckind">%s</p>' % inline(kind) if kind else '')
             + '<h1 class="ctitle">%s</h1>' % inline(title)
+            + '</div><div class="cvbot">'
             + '<p class="cdate">%s</p>' % esc(ym)
             + '<p class="corg">%s</p>' % inline(org)
             + ('<p class="cver">%s</p>' % inline(ver) if ver else '')
-            + '</section>')
+            + '</div></section>')
 
 
 def convert(md: str, base: str, mark: str) -> str:
@@ -335,13 +342,38 @@ h2 .bdg{background:var(--accent);color:#fff;border-radius:%(radius)s;padding:.12
 h3{font-size:1.08em;font-weight:700;margin:1.6em 0 .55em;padding-left:.45em;
  border-left:3px solid var(--accent2)}
 h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
-.cover{display:flex;flex-direction:column;justify-content:center;min-height:%(coverh)smm;
- text-align:center;border-top:6px solid var(--accent);border-bottom:6px solid var(--accent)}
-.ckind{color:var(--accent);font-weight:700;letter-spacing:.3em;font-size:.88em;margin:0 0 1.4em}
-.ctitle{font-size:2.3em;font-weight:800;line-height:1.3;letter-spacing:-.03em;margin:0 0 1.6em}
+.cover{page:cover;display:flex;flex-direction:column;justify-content:center;
+ min-height:%(coverh)smm;text-align:center;padding:%(mt)smm %(mr)smm %(mb)smm %(ml)smm;
+ margin:-%(mt)smm -%(mr)smm 0 -%(ml)smm}
+.cvtop,.cvbot{width:100%%}
+.ckind{color:var(--accent);font-weight:700;letter-spacing:.3em;font-size:.86em;margin:0 0 1.5em}
+.ctitle{font-size:2.05em;font-weight:800;line-height:1.36;letter-spacing:-.03em;margin:0}
 .cdate{font-size:1.05em;color:var(--soft);margin:0 0 .3em}
 .corg{font-size:1.15em;font-weight:700;margin:0 0 .2em}
 .cver{font-size:.85em;color:var(--soft);margin:.9em 0 0}
+.cvbot{margin-top:3.4em}
+
+/* 괘선형 — 흰 바탕에 상하 굵은 선. ｢국가 망 보안체계 보안 가이드라인｣ 계열 */
+.cv-rule .cvtop{border-top:6px solid var(--accent);padding-top:0}
+.cv-rule{border-top:6px solid var(--accent);border-bottom:6px solid var(--accent);
+ margin:0;padding:8%% %(mr)smm 8%% %(ml)smm}
+.cv-rule .cvtop{border:0}
+
+/* 색면형 — 위쪽을 색으로 덮고 아래에 기관을 둔다. ｢지능형 전력망｣·｢AI 보안 가이드북｣ 계열 */
+.cv-band{justify-content:space-between;padding:0}
+.cv-band .cvtop{background:linear-gradient(165deg,var(--accent),var(--accent2));
+ color:#fff;padding:32%% 14mm 13%%;margin:0}
+.cv-band .ckind{color:#fff;opacity:.88}
+.cv-band .cvbot{padding:0 14mm 18mm;margin:0}
+
+/* 측면형 — 왼쪽에 색 바를 세우고 왼쪽으로 맞춘다. 부속 해설서 계열 */
+.cv-side{text-align:left;padding:%(mt)smm %(mr)smm %(mb)smm 0;
+ border-left:10mm solid var(--accent)}
+.cv-side .cvtop,.cv-side .cvbot{padding-left:12mm}
+
+/* 바탕형 — 연한 색을 전면에 깐다. ｢SIEM·SOAR 지침｣ 계열 */
+.cv-tint{background:var(--tint);border-top:4mm solid var(--accent);padding:0 14mm}
+
 .toch{margin-bottom:.7em}
 .toc{margin:0 0 .25em;padding-left:1.4em;color:var(--soft);font-size:.95em}
 .toc.tc{padding-left:0;margin-top:.85em;color:var(--ink);font-weight:700;font-size:1em;
@@ -368,8 +400,10 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
  font-size:8pt;color:var(--soft);border-bottom:1px solid var(--rule);padding-bottom:1.5mm}
 .rh .doc{margin-left:auto}
 @page{size:%(w)smm %(h)smm;margin:%(mt)smm %(mr)smm %(mb)smm %(ml)smm}
+@page cover{size:%(w)smm %(h)smm;margin:0}
 @media print{body{background:#fff}
- .cover{min-height:auto;height:%(coverp)smm;break-after:page}
+ .cover{min-height:%(h)smm;height:%(h)smm;margin:0;break-after:page;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
  .sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
  .rh{display:none}
  .chapter{%(brk)s}
@@ -378,14 +412,15 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
            rule=t['rule'], soft=t['soft'], font=GOTHIC, mono=MONO, body=t['body'],
            w=w, h=h, ml=ml, mr=mr, mt=mt, mb=mb, radius=radius,
            rh=max(5, mt - 11), brk='break-before:page' if t['chapter'] == 'page' else '',
-           coverh=h - mt - mb - 20, coverp=h - mt - mb - 4)
+           coverh=h - mt - mb - 20, coverp=h - mt - mb - 4,
+           coverb=h - mb - 4)
 
 
 def build(md: str, base: str, key: str, title: str) -> str:
     t = THEMES[key]
     mark = '■' if key == 'print' else '●'
     doctitle, meta, rest = split_front(md)
-    body = cover(doctitle or title, meta) + convert(rest, base, mark)
+    body = cover(doctitle or title, meta, t.get('cover', 'rule')) + convert(rest, base, mark)
     return """<!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
