@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import io
 import os
 import re
@@ -177,10 +178,11 @@ def cover(title: str, meta: dict, kind_css: str = 'rule') -> str:
             + '</div></section>')
 
 
-def convert(md: str, base: str, mark: str) -> str:
+def convert(md: str, base: str, mark: str, pages: dict = None) -> str:
     lines = md.split('\n')
     out: list[str] = []
     i, n = 0, len(lines)
+    pages = pages or {}
     ul_open = 0
     toc = False
     pending_cap = None
@@ -280,7 +282,10 @@ def convert(md: str, base: str, mark: str) -> str:
             if toc:
                 txt = m.group(2).strip()
                 ch = bool(re.match(r'^(제\d+장|부록)', txt))
-                out.append('<p class="toc%s">%s</p>' % (' tc' if ch else '', inline(txt)))
+                pg = pages.get(txt)
+                out.append('<p class="toc%s"><span class="tt">%s</span>%s</p>'
+                           % (' tc' if ch else '', inline(txt),
+                              '<span class="tp">%d</span>' % pg if pg else ''))
                 i += 1
                 continue
             depth = 1 + (len(m.group(1)) >= 2)
@@ -375,9 +380,16 @@ h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
 .cv-tint{background:var(--tint);border-top:4mm solid var(--accent);padding:0 14mm}
 
 .toch{margin-bottom:.7em}
-.toc{margin:0 0 .25em;padding-left:1.4em;color:var(--soft);font-size:.95em}
+.toc{margin:0 0 .25em;padding-left:1.4em;color:var(--soft);font-size:.95em;
+ display:flex;align-items:baseline;gap:.4em}
+.toc .tt{flex:0 1 auto}
+.toc .tp{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--soft);
+ padding-left:.6em}
+.toc:has(.tp) .tt:after{content:"";display:inline-block;width:0}
+.toc .tt+.tp:before{content:"";display:block}
 .toc.tc{padding-left:0;margin-top:.85em;color:var(--ink);font-weight:700;font-size:1em;
  border-bottom:1px solid var(--rule);padding-bottom:.25em}
+.toc.tc .tp{color:var(--accent)}
 .ctl th:first-child,.ctl td:first-child{width:21mm}
 .ctl th:nth-child(2),.ctl td:nth-child(2){width:23mm}
 .ctl th:first-child{white-space:nowrap}
@@ -416,11 +428,12 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
            coverb=h - mb - 4)
 
 
-def build(md: str, base: str, key: str, title: str) -> str:
+def build(md: str, base: str, key: str, title: str, pages: dict = None) -> str:
     t = THEMES[key]
     mark = '■' if key == 'print' else '●'
     doctitle, meta, rest = split_front(md)
-    body = cover(doctitle or title, meta, t.get('cover', 'rule')) + convert(rest, base, mark)
+    body = (cover(doctitle or title, meta, t.get('cover', 'rule'))
+            + convert(rest, base, mark, pages))
     return """<!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -440,6 +453,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument('--all', action='store_true')
     ap.add_argument('--themes', action='store_true')
     ap.add_argument('--out', default=None)
+    ap.add_argument('--toc', default=None,
+                    help='toc.py 가 만든 쪽번호 json. 목차에 넣는다.')
     a = ap.parse_args(argv)
 
     if a.themes or not a.source:
@@ -457,6 +472,13 @@ def main(argv: list[str]) -> int:
     out = a.out or os.path.join(base, 'dist')
     os.makedirs(out, exist_ok=True)
     title = next((l[2:].strip() for l in md.split('\n') if l.startswith('# ')), '가이드라인')
+    pages = {}
+    if a.toc:
+        if not os.path.exists(a.toc):
+            print('없는 파일: %s' % a.toc)
+            return 2
+        pages = json.load(io.open(a.toc, encoding='utf-8'))
+        print('목차 쪽번호 %d개를 넣는다' % len(pages))
 
     keys = list(THEMES) if a.all else [a.theme]
     for k in keys:
@@ -464,7 +486,7 @@ def main(argv: list[str]) -> int:
             print('없는 테마: %s' % k)
             return 2
         p = os.path.join(out, '%s.html' % k)
-        io.open(p, 'w', encoding='utf-8', newline='\n').write(build(md, base, k, title))
+        io.open(p, 'w', encoding='utf-8', newline='\n').write(build(md, base, k, title, pages))
         print('%s  (%s)' % (p, THEMES[k]['label']))
 
     if a.all:

@@ -108,6 +108,7 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 python skills/guideline-design/render.py 원고.md --all     # 다섯 테마로 조판
 chrome --headless=new --no-pdf-header-footer \
   --print-to-pdf=dist/배포본.pdf "file:///…/dist/nis.html"  # 인쇄
+python skills/guideline-design/toc.py dist/1차.pdf --source 원고.md   # 목차 쪽번호
 python skills/guideline-design/paginate.py dist/배포본.pdf --title "문서명"
 ```
 
