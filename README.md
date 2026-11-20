@@ -16,13 +16,14 @@
 ## korean-skills 위에 세워져 있습니다
 
 이 저장소는 [**korean-skills**](https://github.com/DaleSeo/korean-skills)(Dale Seo, MIT)
-없이는 반쪽입니다. 다섯 개 스킬 중 **둘은 korean-skills 를 그대로 복사한 것이고,
+없이는 반쪽입니다. 여섯 개 스킬 중 **둘은 korean-skills 를 그대로 복사한 것이고,
 하나는 korean-skills 에서 파생**했습니다.
 
 | 스킬 | 누가 만들었나 |
 |---|---|
 | `guideline-writer` | 이 저장소 |
 | `guideline-lint` | 이 저장소 |
+| `guideline-design` | 이 저장소 |
 | `govdoc-style` | **korean-skills `style-guide` 에서 파생** (구조를 가져와 내용 교체) |
 | `grammar-checker` | **korean-skills 원본 그대로 복사** |
 | `humanizer` | **korean-skills 원본 그대로 복사** |
@@ -94,6 +95,32 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 같은 성격의 지적은 하나로 묶어 횟수와 예시 줄번호만 보여줍니다. 측정에 쓴
 가이드라인 20종에 돌려 보면 문서당 오류 0~2건, 경고 0~4건이 나옵니다.
 
+### `guideline-design` — 배포본 조판
+
+원고를 **발행본 모양의 HTML·PDF 로** 만듭니다. 판면·여백·본문 크기·색은 짐작이
+아니라 발행본 20종을 측정해 정했습니다.
+
+가장 자주 틀리는 것이 판면입니다. **측정한 20종 중 A4 는 6종뿐이고 전부 짧은
+지침입니다** — 본체 가이드라인의 판면은 188×257mm 가 중앙값입니다. 본문에 명조를
+쓴 문서는 하나도 없고, 여백은 좌우가 상하보다 넓습니다.
+
+```bash
+python skills/guideline-design/render.py 원고.md --all     # 다섯 테마로 조판
+chrome --headless=new --no-pdf-header-footer \
+  --print-to-pdf=dist/배포본.pdf "file:///…/dist/nis.html"  # 인쇄
+python skills/guideline-design/paginate.py dist/배포본.pdf --title "문서명"
+```
+
+원고에서 표지·목차·캡션 배지·통제항목 표를 만들고, 삽도 SVG 를 파일 안에 넣습니다.
+결과 HTML 은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
+
+쪽번호는 브라우저 인쇄가 만들어 주지 않으므로 PDF 를 후처리해서 넣습니다.
+측정한 20종 중 쪽 표시가 없는 것은 6쪽짜리 지침과 훈령 둘뿐입니다.
+
+수치의 근거는
+[발행본 디자인 측정값](skills/guideline-design/references/publication-design.md)에
+있습니다.
+
 ### `govdoc-style` — 공문서 문체 일관성
 
 korean-skills `style-guide` 에서 구조를 가져와 공문서 관례로 내용을 교체한
@@ -134,6 +161,8 @@ korean-skills `style-guide` 에서 구조를 가져와 공문서 관례로 내�
 문체 일관성    govdoc-style
   ↓
 맞춤법         grammar-checker
+  ↓
+배포본 조판     guideline-design        ← 원고가 확정된 뒤에 한다
 ```
 
 요약본을 함께 낸다면 **장르가 바뀌므로 문체를 통째로 갈고** 검사도 따로
