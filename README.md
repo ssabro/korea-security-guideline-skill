@@ -125,13 +125,24 @@ python skills/guideline-design/paginate.py dist/책.pdf --style bottom \
 
 결과 HTML 은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
 
-**테마는 9종**입니다. `themes/` 에 파일 하나가 테마 하나라 직접 더할 수 있습니다
+기관이 이미 펴낸 책이 있으면 **거기서 재서 테마를 만듭니다.**
+
+```bash
+python skills/guideline-design/themegen.py 기관_작년_가이드라인.pdf --key ourorg
+```
+
+판면·여백·본문 크기·색을 재서 `themes/ourorg.py` 를 씁니다. 주조색은 제목 글자
+색에서 찾고, 후보를 모두 주석에 적어 두니 한 줄 바꿔 끼우면 됩니다. 값 몇 개만
+바꿀 때는 `--set accent=#1b3a6b` 처럼 줘도 됩니다.
+
+**테마는 10종**입니다. `themes/` 에 파일 하나가 테마 하나라 직접 더할 수 있습니다
 — [테마 만들기](skills/guideline-design/themes/README.md).
 
 | | |
 |---|---|
 | `nis` `field` `control` `manual` `print` | 측정에서 바로 나온 판면 |
 | `typo` `tab` `spec` `formal` | 타이포그래피 주도 · 장별 색과 측면 탭 · 기술 규격서 · 국가 간행물 |
+| `art` | 전면 기하 아트워크 표지에 기관 로고 |
 
 ### 삽도
 

@@ -68,6 +68,33 @@ THEMES = {
         cover='rule'),
 }
 
+def apply_sets(t: dict, sets: list) -> dict:
+    """`--set 이름=값` 을 테마에 덮어쓴다.
+
+    테마 파일을 새로 쓰지 않고 색 하나만 바꿔 보고 싶을 때가 많다. 숫자와
+    괄호 묶음(page, margin)은 알아서 바꿔 읽는다.
+    """
+    if not sets:
+        return t
+    t = dict(t)
+    nums = {'body'}
+    tuples = {'page', 'margin'}
+    for item in sets:
+        if '=' not in item:
+            print('--set 은 이름=값 꼴이다: %s' % item)
+            continue
+        k, v = item.split('=', 1)
+        k, v = k.strip(), v.strip()
+        if k in tuples:
+            t[k] = tuple(float(x) if '.' in x else int(x)
+                         for x in v.replace(' ', '').split(','))
+        elif k in nums:
+            t[k] = float(v)
+        else:
+            t[k] = v
+    return t
+
+
 def load_themes() -> None:
     """`themes/` 폴더의 테마를 등록한다.
 
@@ -209,7 +236,7 @@ def split_sections(rest: str) -> tuple:
     return info, toc, body
 
 
-def front_matter(title: str, meta: dict, kind_css: str,
+def front_matter(title: str, meta: dict, kind_css: str, art: str, logo: str,
                  info_html: str, toc_html: str) -> str:
     """책 앞붙이. 쪽 차례는 발행본 관행을 따른다.
 
@@ -219,7 +246,7 @@ def front_matter(title: str, meta: dict, kind_css: str,
     **어느 쪽이 비어야 하는지는 인쇄해 봐야 안다.** `book.py` 가 인쇄한 뒤에
     각 앞붙이를 홀수 쪽으로 맞추며 필요한 만큼만 끼운다.
     """
-    return (cover(title, meta, kind_css)
+    return (cover(title, meta, kind_css, art, logo)
             + '<section class="halftitle"><h1>%s</h1></section>' % inline(title)
             + '<section class="docinfo">%s</section>' % info_html
             + '<section class="tocpage">%s</section>' % toc_html)
@@ -238,7 +265,33 @@ def colophon(title: str, meta: dict) -> str:
             '</section>' % (inline(title), cells))
 
 
-def cover(title: str, meta: dict, kind_css: str = 'rule') -> str:
+def logos(base: str) -> str:
+    """원고 폴더의 `logos/` 에 든 기관 로고를 표지에 올린다.
+
+    **로고를 지어내지 않는다.** 기관이 넣은 파일만 쓰고, 없으면 빈 문자열을
+    돌려준다. 정부기관 로고를 만들어 붙이는 것은 위조다.
+    """
+    d = os.path.join(base, 'logos')
+    if not os.path.isdir(d):
+        return ''
+    out = []
+    for fn in sorted(os.listdir(d)):
+        ext = os.path.splitext(fn)[1].lower()
+        if ext == '.svg':
+            s = io.open(os.path.join(d, fn), encoding='utf-8').read()
+            s = re.sub(r'<\?xml[^>]*\?>', '', s)
+            out.append('<span class="lg">%s</span>' % s)
+        elif ext in ('.png', '.jpg', '.jpeg'):
+            import base64
+            b = base64.b64encode(open(os.path.join(d, fn), 'rb').read()).decode()
+            mime = 'png' if ext == '.png' else 'jpeg'
+            out.append('<span class="lg"><img src="data:image/%s;base64,%s" alt=""></span>'
+                       % (mime, b))
+    return '<div class="cvlogo">%s</div>' % ''.join(out) if out else ''
+
+
+def cover(title: str, meta: dict, kind_css: str = 'rule',
+          art: str = '', logo: str = '') -> str:
     """발행본 표지. 기관이 채울 칸은 원고의 값을 그대로 보여 준다."""
     kind = meta.get('문서 종류', '')
     org = meta.get('발행기관', '')
@@ -247,6 +300,7 @@ def cover(title: str, meta: dict, kind_css: str = 'rule') -> str:
     ym = '%s. %s.' % (m.group(1), m.group(2)) if m else date
     ver = meta.get('원고 버전', '')
     return ('<section class="cover cv-%s">' % kind_css
+            + ('<div class="cvart">%s</div>' % art if art else '')
             + '<div class="cvtop">'
             + ('<p class="ckind">%s</p>' % inline(kind) if kind else '')
             + '<h1 class="ctitle">%s</h1>' % inline(title)
@@ -254,6 +308,7 @@ def cover(title: str, meta: dict, kind_css: str = 'rule') -> str:
             + '<p class="cdate">%s</p>' % esc(ym)
             + '<p class="corg">%s</p>' % inline(org)
             + ('<p class="cver">%s</p>' % inline(ver) if ver else '')
+            + logo
             + '</div></section>')
 
 
@@ -448,7 +503,7 @@ h3{font-size:1.08em;font-weight:700;margin:1.6em 0 .55em;padding-left:.45em;
 h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
 .cover{page:cover;display:flex;flex-direction:column;justify-content:center;
  min-height:%(coverh)smm;text-align:center;padding:%(mt)smm %(mr)smm %(mb)smm %(ml)smm;
- margin:-%(mt)smm -%(mr)smm 0 -%(ml)smm}
+ margin:-%(mt)smm -%(mr)smm 0 -%(ml)smm;position:relative}
 .cvtop,.cvbot{width:100%%}
 .ckind{color:var(--accent);font-weight:700;letter-spacing:.3em;font-size:.86em;margin:0 0 1.5em}
 .ctitle{font-size:2.05em;font-weight:800;line-height:1.36;letter-spacing:-.03em;margin:0}
@@ -474,6 +529,38 @@ h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
 .cv-side{text-align:left;padding:%(mt)smm %(mr)smm %(mb)smm 0;
  border-left:10mm solid var(--accent)}
 .cv-side .cvtop,.cv-side .cvbot{padding-left:12mm}
+
+/* 아트워크형 — 기하 구성을 전면에 깔고 그 위에 글자를 앉힌다.
+   실제 발행본의 표지는 글자만 있지 않다.
+
+   `.cover` 의 상자 높이에 기대지 않는다 — 인쇄에서 쪽 조각화가 걸려 상자가
+   쪽 내용 영역에 맞춰 잘리고, 그러면 아래가 빈다. 판면 치수를 직접 준다. */
+.cv-art{padding:0;color:#fff;display:block;height:%(h)smm;background:%(accent)s}
+/* 화면에서는 아트워크를 여기 깐다. 인쇄에서는 쪽 조각화 때문에 상자가 잘려
+   종이 끝까지 가지 않으므로, 인쇄본에는 `coverart.py` 가 뒤에 깔아 준다. */
+.cv-art .cvart{position:absolute;top:0;left:0;width:%(w)smm;height:%(h)smm;
+ z-index:0;line-height:0}
+.cv-art .cvart svg{width:100%%;height:100%%;display:block}
+/* 인쇄본에서는 `coverart.py` 가 글자 아래에 아트워크를 깐다. 그러려면
+   쪽 바탕이 흰색으로 덮여 있으면 안 되고, 글자는 인쇄 영역 안에 있어야 한다.
+   쪽 조각화로 상자가 233mm 쯤에서 잘리므로 글자 상자를 그보다 낮게 잡는다. */
+@media print{
+ .cv-art{background:none;height:%(coverp)smm;display:flex;flex-direction:column}
+ .cv-art .cvart{display:none}
+ .cv-art .cvtop{position:static;padding-top:24%%}
+ .cv-art .cvbot{position:static;margin-top:auto;padding-bottom:10mm}
+}
+.cv-art .cvtop{position:absolute;z-index:1;left:0;right:0;top:24%%;padding:0 16mm}
+.cv-art .cvbot{position:absolute;z-index:1;left:0;right:0;bottom:15mm;
+ padding:0 16mm;margin:0}
+.cv-art .ckind{color:#fff;opacity:.9}
+.cv-art .ctitle{text-shadow:0 1px 10px rgba(0,0,0,.22)}
+.cv-art .cdate,.cv-art .cver{color:rgba(255,255,255,.82)}
+.cv-art .corg{color:#fff}
+.cvlogo{display:flex;gap:9mm;align-items:center;justify-content:center;
+ margin-top:7mm;flex-wrap:wrap}
+.cvlogo .lg{display:inline-flex;align-items:center;height:11mm}
+.cvlogo .lg svg,.cvlogo .lg img{height:11mm;width:auto;display:block}
 
 /* 바탕형 — 연한 색을 전면에 깐다. ｢SIEM·SOAR 지침｣ 계열 */
 .cv-tint{background:var(--tint);border-top:4mm solid var(--accent);padding:0 14mm}
@@ -530,7 +617,8 @@ pre{background:var(--tint);padding:.8em 1em;overflow:auto;font-family:var(--mono
  .cover{min-height:%(h)smm;height:%(h)smm;margin:0;break-after:page;
   -webkit-print-color-adjust:exact;print-color-adjust:exact}
  .halftitle,.colophon{min-height:%(coverp)smm;height:%(coverp)smm}
- .sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
+ .sheet{width:auto;min-height:0;margin:0;padding:0;box-shadow:none;background:none}
+ body{background:none}
  .rh{display:none}
  .chapter{%(brk)s}
  tr,figure,.cap{break-inside:avoid}h2,h3,h4{break-after:avoid}}
@@ -586,7 +674,20 @@ def build(md: str, base: str, key: str, title: str, pages: dict = None) -> str:
     doctitle, meta, rest = split_front(md)
     name = doctitle or title
     info_md, toc_md, body_md = split_sections(rest)
-    body = (front_matter(name, meta, t.get('cover', 'rule'),
+    art = ''
+    if t.get('cover') == 'art':
+        try:
+            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+            import figures as _F
+            w, h = t['page']
+            art = re.sub(r'<\?xml[^>]*\?>', '', _F.build(dict(
+                type='cover', width=w * 4, height=h * 4,
+                motif=t.get('motif', 'crystal'), quiet=t.get('quiet', 0.62),
+                seed=name), _F.theme_palette_from(t)))
+            art = art.replace('<svg ', '<svg preserveAspectRatio="none" ', 1)
+        except Exception as e:
+            print('표지 아트워크를 그리지 못했다 — %s' % e)
+    body = (front_matter(name, meta, t.get('cover', 'rule'), art, logos(base),
                          convert(info_md, base, mark, pages),
                          convert(toc_md, base, mark, pages))
             + convert(body_md, base, mark, pages)
@@ -610,6 +711,10 @@ def main(argv: list[str]) -> int:
     ap.add_argument('--all', action='store_true')
     ap.add_argument('--themes', action='store_true')
     ap.add_argument('--out', default=None)
+    ap.add_argument('--set', dest='sets', action='append', default=None,
+                    metavar='이름=값',
+                    help='테마 값을 덮어쓴다. 예: --set accent=#1b3a6b '
+                         '--set body=10.2 --set page=190,260')
     ap.add_argument('--toc', default=None,
                     help='toc.py 가 만든 쪽번호 json. 목차에 넣는다.')
     a = ap.parse_args(argv)
@@ -643,6 +748,8 @@ def main(argv: list[str]) -> int:
         if k not in THEMES:
             print('없는 테마: %s' % k)
             return 2
+        if a.sets:
+            THEMES[k] = apply_sets(dict(DEFAULTS, **THEMES[k]), a.sets)
         p = os.path.join(out, '%s.html' % k)
         io.open(p, 'w', encoding='utf-8', newline='\n').write(build(md, base, k, title, pages))
         mp = os.path.join(out, '%s-구성.json' % k)

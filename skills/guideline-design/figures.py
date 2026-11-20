@@ -54,6 +54,18 @@ def theme_palette(key: str = 'nis') -> dict:
 
 
 # ── 글자 폭 어림 ──────────────────────────────────────────────────────────
+def theme_palette_from(t: dict) -> dict:
+    """이미 읽어 둔 테마 사전에서 바로 팔레트를 만든다. render.py 가 쓴다."""
+    mono = t.get('mark') == '■' or t.get('label', '').startswith('흑백')
+    return dict(
+        ink=t.get('ink', '#1a1a1a'), accent=t.get('accent', '#24408f'),
+        accent2=t.get('accent2', '#006cb7'), tint=t.get('tint', '#e8eef7'),
+        rule=t.get('rule', '#c9d3e2'), soft=t.get('soft', '#5b6670'),
+        mono=mono, fill='#ffffff' if mono else t.get('tint', '#e8eef7'),
+        stroke=t.get('ink', '#1a1a1a') if mono else t.get('rule', '#c9d3e2'),
+        hot=t.get('ink', '#1a1a1a') if mono else '#c0392b')
+
+
 def char_w(ch: str, size: float) -> float:
     o = ord(ch)
     if o < 128:
@@ -460,7 +472,98 @@ def draw_hero(spec: dict, pal: dict) -> Canvas:
     return c
 
 
+def draw_cover(spec: dict, pal: dict) -> Canvas:
+    """표지 아트워크. 판면을 꽉 채우는 기하 구성을 그린다.
+
+    `motif` 로 꼴을 고른다.
+
+      crystal  모난 다각형이 겹치는 결정 구조. 가장 무난하다
+      network  점과 선으로 짠 망. 통신·연계를 다루는 문서에
+      wave     동심원 호. 넓은 범위·전파를 다루는 문서에
+      grid     아이소메트릭 격자. 체계·구조를 다루는 문서에
+
+    **글자가 앉을 자리(`quiet`)는 비워 둔다.** 작은 글자 뒤에 무늬가 깔리면
+    읽히지 않는다. `quiet` 는 위에서부터의 비율이다(기본 0.62).
+    """
+    import math as _m
+    W = spec.get('width', 760)
+    H = spec.get('height', 1040)
+    c = Canvas(W, H, pal)
+    seed = sum(ord(x) for x in str(spec.get('seed', 'guideline')))
+    motif = spec.get('motif', 'crystal')
+    quiet = float(spec.get('quiet', 0.62))
+    qy = H * quiet
+    mono = pal['mono']
+
+    base = grad(c, 'cvbg', pal['accent'], pal['accent2'], 155)
+    if mono:
+        c.rect(0, 0, W, H, '#ffffff', 'none', 0, 0)
+    else:
+        c.rect(0, 0, W, H, base, 'none', 0, 0)
+
+    line = pal['ink'] if mono else '#ffffff'
+    soft = 0.10 if not mono else 0.22
+
+    def poly(pts, fill, op):
+        c.add('<polygon points="%s" fill="%s" opacity="%g"/>'
+              % (' '.join('%g,%g' % p for p in pts), fill, op))
+
+    if motif == 'crystal':
+        # 모난 다각형을 겹쳐 결정처럼 쌓는다. 아래쪽에 모은다.
+        for i in range(7):
+            k = (seed + i * 37) % 100 / 100.0
+            cx = W * (0.18 + 0.68 * ((seed + i * 53) % 100) / 100.0)
+            cy = qy + (H - qy) * (0.10 + 0.72 * k)
+            r = W * (0.10 + 0.17 * ((seed + i * 71) % 100) / 100.0)
+            pts = []
+            for j in range(6):
+                a = _m.radians(60 * j + (seed + i * 11) % 30)
+                pts.append((cx + r * _m.cos(a), cy + r * _m.sin(a) * 0.86))
+            poly(pts, line, soft + 0.06 * (i % 3))
+    elif motif == 'network':
+        pts = []
+        for i in range(14):
+            x = W * (0.08 + 0.84 * ((seed + i * 97) % 100) / 100.0)
+            y = qy + (H - qy) * (0.06 + 0.84 * ((seed + i * 59) % 100) / 100.0)
+            pts.append((x, y))
+        for i, p in enumerate(pts):
+            for q in pts[i + 1:]:
+                d = _m.hypot(p[0] - q[0], p[1] - q[1])
+                if d < W * 0.30:
+                    c.add('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                          'stroke-width="0.8" opacity="%g"/>'
+                          % (p[0], p[1], q[0], q[1], line, soft * 1.6))
+        for p in pts:
+            c.add('<circle cx="%g" cy="%g" r="3.4" fill="%s" opacity="%g"/>'
+                  % (p[0], p[1], line, soft * 3.2))
+    elif motif == 'wave':
+        cx, cy = W * 0.78, qy + (H - qy) * 0.42
+        for i in range(11):
+            r = W * (0.08 + i * 0.058)
+            c.add('<circle cx="%g" cy="%g" r="%g" fill="none" stroke="%s" '
+                  'stroke-width="%g" opacity="%g"/>'
+                  % (cx, cy, r, line, 1.4 if i % 3 == 0 else 0.7,
+                     soft * (2.4 - i * 0.14)))
+    else:  # grid
+        step = W * 0.052
+        for i in range(-6, 40):
+            x = i * step
+            c.add('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                  'stroke-width="0.7" opacity="%g"/>'
+                  % (x, qy, x - (H - qy) * 0.58, H, line, soft * 1.3))
+            c.add('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                  'stroke-width="0.7" opacity="%g"/>'
+                  % (x, qy, x + (H - qy) * 0.58, H, line, soft * 0.9))
+
+    # 글자 자리와 무늬를 가르는 가는 선
+    c.add('<line x1="0" y1="%g" x2="%g" y2="%g" stroke="%s" stroke-width="1" '
+          'opacity="%g"/>' % (qy, W, qy, line, soft * 2.2))
+    return c
+
+
 DRAW = {
+    'cover': draw_cover,
+
     'architecture': draw_architecture,
     'flow': draw_flow,
     'process': draw_process,
@@ -472,6 +575,7 @@ DRAW = {
 }
 
 TYPE_NOTE = {
+    'cover': '표지 아트워크. 판면을 채우는 기하 구성. 글자 자리는 비워 둔다',
     'architecture': '계층·구역 구성. 무엇이 무엇 안에 있는지 보일 때',
     'flow': '데이터·통신 흐름. 무엇이 어디로 가는지 보일 때',
     'process': '절차 단계. 순서가 있는 일을 보일 때',
