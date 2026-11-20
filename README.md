@@ -53,14 +53,14 @@ pip install pymupdf
 
 ## 빠른 시작
 
-원고가 있다면 두 줄이면 배포본이 나옵니다.
+원고가 있으면 두 줄로 배포본이 나옵니다.
 
 ```bash
 python skills/guideline-lint/lint.py 원고.md            # 검사
 python skills/guideline-design/publish.py 원고.md       # 배포본 PDF
 ```
 
-`publish.py` 가 조판·인쇄·책 구성·목차 쪽번호·검증·쪽번호를 차례로 돌립니다. 손으로 하면 명령이 열둘이고 `--skip` 값을 옮겨 적어야 하는데, 그 값을 도구끼리 주고받습니다. 100쪽 문서에 30초쯤 걸립니다.
+`publish.py` 가 조판·인쇄·책 구성·목차 쪽번호·검증·쪽번호를 차례로 돌립니다. 손으로 하면 명령이 열둘이고 `--skip` 값을 옮겨 적어야 합니다. 그 값을 도구끼리 주고받으므로 틀릴 일이 없습니다. 100쪽 문서에 30초쯤 걸립니다.
 
 ```
 [1/7] 조판 — 국정원 표준형
@@ -94,13 +94,13 @@ python skills/guideline-design/publish.py 원고.md --theme art
 
 ### `guideline-writer` 집필
 
-장르를 정하고 → 골격을 확정하고 → 통제항목·등급 체계를 설계하고 → 본문을 쓰고 → 부록을 붙이는 순서로 진행합니다.
+장르 확정 → 골격 → 통제항목·등급 체계 → 본문 → 부록 순서로 갑니다.
 
 > 의료정보시스템 보안 가이드라인 써줘. 통제항목 체계도 넣어서.
 
-- **장르를 먼저 묻습니다.** 법령형 지침 / 분야별 가이드라인 / 통제항목 체계 / 실무 안내서는 골격·번호 체계·종결어미가 전부 다릅니다. 섞으면 바로 어긋나 보입니다.
+- **장르를 먼저 묻습니다.** 법령형 지침 / 분야별 가이드라인 / 통제항목 체계 / 실무 안내서는 골격·번호 체계·종결어미가 전부 다릅니다. 섞으면 읽는 사람이 바로 알아챕니다.
 - **전개 축을 하나만 씁니다.** 보안대책 장은 수명주기별 또는 구성요소·연계유형별 중 하나입니다. 둘을 장 단위로 섞으면 같은 통제가 흩어집니다.
-- 장르별 목차 템플릿 5종과 재사용할 통제 도메인 코드 27개를 함께 제공합니다.
+- 장르별 목차 템플릿 5종과 가져다 쓸 수 있는 통제 도메인 코드 27개가 함께 있습니다.
 
 ### `guideline-lint` 검사
 
@@ -127,17 +127,17 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 
 가장 자주 틀리는 것이 판면입니다. **측정한 20종 중 A4 는 6종뿐이고 전부 짧은 지침입니다** — 본체 가이드라인의 판면은 188×257mm 가 중앙값입니다. 본문에 명조를 쓴 문서는 하나도 없고, 여백은 좌우가 상하보다 넓습니다.
 
-**제본해서 펴낼 것을 전제로 짭니다.** 표지 - 속표지 - 문서 정보 - 목차가 저마다 홀수 쪽에서 시작하고, 앞 내용이 길어지면 뒤 차례가 밀립니다. 본문은 그다음 홀수 쪽에서 시작하며 거기가 1쪽입니다. 마지막은 판권지입니다.
+**제본해서 펴낼 것을 전제로 짭니다.** 표지 → 속표지 → 문서 정보 → 목차가 저마다 홀수 쪽에서 시작하고, 앞 내용이 길어지면 뒤 차례가 밀립니다. 본문은 그다음 홀수 쪽에서 시작하며 거기가 1쪽입니다. 마지막은 판권지입니다.
 
 ```bash
 python skills/guideline-design/publish.py 원고.md --theme nis
 ```
 
-한 명령이 일곱 단계를 돌립니다. 단계별로 따로 부르고 싶으면 [SKILL.md](skills/guideline-design/SKILL.md) 에 `render` · `book` · `toc` · `paginate` · `coverart` 를 각각 쓰는 법이 있습니다.
+명령 하나가 일곱 단계를 돌립니다. 단계별로 따로 부르고 싶으면 [SKILL.md](skills/guideline-design/SKILL.md) 에 `render` · `book` · `toc` · `paginate` · `coverart` 를 각각 쓰는 법이 있습니다.
 
 빈 쪽은 원고에 박지 않고 인쇄한 뒤에 필요한 만큼만 끼웁니다 — 브라우저가 `break-before: recto` 를 무시하기 때문입니다. 결과 HTML 은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
 
-기관이 이미 펴낸 책이 있으면 거기서 재서 테마를 만들 수 있습니다 — [기관에 맞추기](#기관에-맞추기).
+기관이 이미 펴낸 책이 있으면 그 판면을 재서 테마를 만들 수 있습니다 — [기관에 맞추기](#기관에-맞추기).
 
 **테마는 10종**입니다. `themes/` 에 파일 하나가 테마 하나라 직접 더할 수 있습니다 — [테마 만들기](skills/guideline-design/themes/README.md).
 
@@ -152,14 +152,14 @@ python skills/guideline-design/publish.py 원고.md --theme nis
 같은 스킬이 **삽도도 그립니다.** 색은 조판 테마를 따르므로 `nis` 면 남색, `print` 면 흑백이 되고, 캡션은 `[그림 N-M]` 규칙이라 `guideline-lint` 검사를 그대로 통과합니다.
 
 ```bash
-python skills/guideline-design/figplan.py 원고.md --mode review   # 어디에 무엇이
+python skills/guideline-design/figplan.py 원고.md --mode review   # 어디에 무엇이 필요한지
 python skills/guideline-design/figures.py 계획.json --theme nis   # 그린다
 python skills/guideline-design/figplan.py 원고.md --mode auto --plan 계획.json
 ```
 
-**두 단계인 이유가 있습니다.** `review` 가 내놓는 계획에는 명세가 비어 있고, 원고를 읽고 채워야 그립니다. 도구가 혼자 노드와 연결을 지어내지 못하게 막은 것입니다 — 원고에 없는 구성요소를 그린 도식은 그럴듯해서 더 위험합니다.
+**두 단계인 이유가 있습니다.** `review` 가 내놓는 계획에는 명세가 비어 있습니다. 사람이 원고를 읽고 채워야 그립니다. 도구가 혼자 노드와 연결을 지어내지 못하게 막은 것입니다 — 원고에 없는 구성요소를 그린 도식은 그럴듯해서 더 위험합니다.
 
-이미지 생성 API 는 쓰지 않습니다. 사진 같은 그래픽이 필요하면 계획에 적어 두고 발행기관이 따로 만듭니다. 규칙은 [삽도 — 무엇을, 언제, 어떻게](skills/guideline-design/references/figure-design.md)에 있습니다.
+이미지 생성 API 는 쓰지 않습니다. 사진이나 3D 렌더링처럼 그려서 될 일이 아닌 그림이 필요하면, 계획에 쓰임만 적어 두고 발행기관이 따로 만듭니다. 규칙은 [삽도 — 무엇을, 언제, 어떻게](skills/guideline-design/references/figure-design.md)에 있습니다.
 
 수치의 근거는 [발행본 디자인 측정값](skills/guideline-design/references/publication-design.md)에 있습니다.
 
@@ -177,7 +177,7 @@ korean-skills `style-guide` 에서 구조를 가져와 공문서 관례로 내�
 
 ## 대화로 부르는 스킬
 
-여섯 스킬 중 **셋만 스크립트**입니다(`lint.py` · `publish.py` · `figplan.py`). 나머지는 Claude Code 안에서 **말로 부릅니다.** 외울 명령은 없고, 무엇을 하려는지 말하면 설명이 맞는 스킬이 붙습니다.
+여섯 스킬 중 **셋만 스크립트**입니다(`lint.py` · `publish.py` · `figplan.py`). 나머지는 Claude Code 안에서 **말로 부릅니다.** 외울 명령은 없고, 무엇을 하려는지 말하면 그 일에 맞는 스킬이 붙습니다.
 
 이름을 콕 집어 부르려면 슬래시를 씁니다 — 플러그인으로 설치했다면 `/korea-security-guideline:guideline-writer`, 직접 복사했다면 `/guideline-writer` 입니다.
 
@@ -256,7 +256,7 @@ python skills/guideline-design/figplan.py 원고.md --mode review
 
 ## 전체 과정
 
-빈 폴더에서 배포본까지 실제로 가 보면 이렇습니다.
+빈 폴더에서 배포본까지, 실제 순서는 이렇습니다.
 
 ### 1. 같은 분야 발행물이 있는지 먼저 본다
 
@@ -284,7 +284,7 @@ python skills/guideline-lint/lint.py 원고.md
 
 `govdoc-style` 과 `grammar-checker` 는 Claude Code 에서 말로 부릅니다 — [문체와 맞춤법을 볼 때](#문체와-맞춤법을-볼-때).
 
-요약본을 함께 낸다면 **장르가 바뀌므로 문체를 통째로 갑니다.** 본문은 `~한다`, 요약본은 `~합니다` 이고 번호 체계도 바뀝니다. 검사도 따로 돌립니다 — `lint.py 요약본.md --genre manual`.
+요약본을 함께 낸다면 **장르가 바뀌므로 문체를 통째로 갈아야 합니다.** 본문은 `~한다`, 요약본은 `~합니다` 이고 번호 체계도 바뀝니다. 검사도 따로 돌립니다 — `lint.py 요약본.md --genre manual`.
 
 ### 6. 삽도가 필요한 곳을 본다
 
@@ -292,7 +292,7 @@ python skills/guideline-lint/lint.py 원고.md
 python skills/guideline-design/figplan.py 원고.md --mode review
 ```
 
-후보를 짚어 주면 **정말 필요한지 사람이 판단합니다.** 예제 원고에서는 여섯 곳 중 다섯이 이미 표로 설명돼 있어 그리지 않았습니다. 표로 충분하면 그리지 않습니다.
+도구가 후보를 짚어 주면 **정말 필요한지는 사람이 판단합니다.** 예제 원고에서는 여섯 곳 중 다섯이 이미 표로 설명돼 있어 그리지 않았습니다. 표로 충분하면 그리지 않습니다.
 
 명세를 채우고 그립니다. **도구가 혼자 노드와 연결을 지어내지 못하게** 명세를 사람이 채우는 구조입니다 — 원고에 없는 구성요소를 그린 도식은 그럴듯해서 더 위험합니다.
 
@@ -315,7 +315,7 @@ python skills/guideline-design/publish.py 원고.md --theme nis
 
 ### 기존 발행물에서 테마 뽑기
 
-기관이 이미 펴낸 책이 있으면 거기서 재서 테마를 만듭니다.
+기관이 이미 펴낸 책이 있으면 그 판면을 재서 테마를 만듭니다.
 
 ```bash
 python skills/guideline-design/themegen.py 기관_작년_가이드라인.pdf --key ourorg
