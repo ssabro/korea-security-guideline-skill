@@ -119,7 +119,15 @@ RX_QUOTED = re.compile(r"[\"\'\u201c\u201d\u2018\u2019]"
 
 
 def unquoted(line: str) -> str:
-    """인라인 코드와 따옴표 안을 지운 줄."""
+    """인라인 코드와 따옴표 안을 지운 줄.
+
+    **표면 패턴을 보는 검사는 모두 이걸 거친다** — MIDDOT, MIDDOT-SPACE,
+    LOCATION-REF, FIGURATIVE, MONEY-SPACE. 규칙을 적은 문서는 나쁜 보기를
+    적어야 하는데 그 자리까지 지적하면 자기 규칙에 걸린다.
+
+    PARTICLE-SPACE 는 예외다. 조사를 띄우는 일이 바로 인라인 코드 **뒤**에서
+    가장 자주 일어나므로 거기를 봐야 한다.
+    """
     return RX_QUOTED.sub(" ", RX_INLINE_CODE.sub(" ", line))
 
 RX_LOCATION_REF = re.compile(r"(?:아래|위|다음|상기|하기)\s*(?:의\s*)?(?:표|그림|도표|그래프)")
@@ -477,7 +485,7 @@ def check_style(doc: Doc) -> None:
     """
     if doc.genre != "manual":
         for rx, better in RX_FIGURATIVE:
-            hits = [n for n, l in body_lines(doc) if rx.search(l)]
+            hits = [n for n, l in body_lines(doc) if rx.search(unquoted(l))]
             if hits:
                 doc.add_agg("FIGURATIVE", "warn", hits,
                             "발행본에 드문 비유적·구어적 표현입니다",
@@ -485,12 +493,12 @@ def check_style(doc: Doc) -> None:
                             "코퍼스 20종에 이 표현은 없습니다." % better)
 
     doc.add_agg("MONEY-SPACE", "warn",
-                [n for n, l in body_lines(doc) if RX_MONEY.search(l)],
+                [n for n, l in body_lines(doc) if RX_MONEY.search(unquoted(l))],
                 "금액 단위 '원' 을 앞말에 붙였습니다",
                 "단위 명사는 띄어 씁니다 — '5천만원' 이 아니라 '5천만 원'.")
 
     doc.add_agg("MIDDOT-SPACE", "info",
-                [n for n, l in body_lines(doc) if RX_MIDDOT_SPACE.search(l)],
+                [n for n, l in body_lines(doc) if RX_MIDDOT_SPACE.search(unquoted(l))],
                 "가운뎃점 뒤에 공백이 있습니다",
                 "'휴대형· 부착거치형' 이 아니라 '휴대형·부착거치형' 입니다.")
 

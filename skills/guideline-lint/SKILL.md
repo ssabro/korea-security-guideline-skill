@@ -59,7 +59,7 @@ python skills/guideline-lint/lint.py 원고.md --format json
 | `PARTICLE-SPACE` | 경고 | 조사를 앞말에서 띄움 — `PDF 까지`, `A4 는` | 06 |
 | `MONEY-SPACE` | 경고 | 금액 단위를 붙여 씀 — `5천만원` | 06 |
 | `FIGURATIVE` | 경고 | 발행본에 없는 비유적·구어적 표현 | 05 |
-| `COUNT-MISMATCH` | 경고 | `두 가지` 라 적고 `세 번째` 를 늘어놓음 | 01 |
+| `COUNT-MISMATCH` | 경고 | `두 가지` 라 적고 `세 번째`를 늘어놓음 | 01 |
 | `ID-ORDER` | 참고 | 표 안에서 통제항목 번호가 오름차순이 아님 | 03 |
 | `LOCATION-REF` | 경고 | "아래 표", "다음 그림" 같은 위치 표현 | 02 |
 | `CHECKLIST-MISS` | 경고 | 부록 점검표에서 빠진 통제항목 | 01 |
