@@ -104,19 +104,55 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 지침입니다** — 본체 가이드라인의 판면은 188×257mm 가 중앙값입니다. 본문에 명조를
 쓴 문서는 하나도 없고, 여백은 좌우가 상하보다 넓습니다.
 
+**제본해서 펴낼 것을 전제로 짭니다.** 표지 - 속표지 - 문서 정보 - 목차가 저마다
+홀수 쪽에서 시작하고, 앞 내용이 길어지면 뒤 차례가 밀립니다. 본문은 그다음 홀수
+쪽에서 시작하며 거기가 1쪽입니다. 마지막은 판권지입니다.
+
 ```bash
-python skills/guideline-design/render.py 원고.md --all     # 다섯 테마로 조판
-chrome --headless=new --no-pdf-header-footer \
-  --print-to-pdf=dist/배포본.pdf "file:///…/dist/nis.html"  # 인쇄
-python skills/guideline-design/toc.py dist/1차.pdf --source 원고.md   # 목차 쪽번호
-python skills/guideline-design/paginate.py dist/배포본.pdf --title "문서명"
+python skills/guideline-design/render.py 원고.md --theme nis    # 조판
+# 인쇄(브라우저) → 1차.pdf
+python skills/guideline-design/book.py  dist/1차.pdf --out dist/책.pdf
+python skills/guideline-design/toc.py   dist/책.pdf --source 원고.md --skip 8
+python skills/guideline-design/render.py 원고.md --theme nis --toc dist/toc.json
+# 다시 인쇄 → book.py 다시
+python skills/guideline-design/paginate.py dist/책.pdf --style bottom \
+  --skip 8 --start 1 --end 1 --head --title "문서명"
 ```
 
-원고에서 표지·목차·캡션 배지·통제항목 표를 만들고, 삽도 SVG 를 파일 안에 넣습니다.
+목차 쪽번호 때문에 **두 번 인쇄합니다.** 조판하기 전에는 쪽을 알 수 없습니다.
+빈 쪽도 원고에 박지 않고 `book.py` 가 인쇄한 뒤에 필요한 만큼만 끼웁니다 —
+브라우저가 `break-before: recto` 를 무시하기 때문입니다.
+
 결과 HTML 은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
 
-쪽번호는 브라우저 인쇄가 만들어 주지 않으므로 PDF 를 후처리해서 넣습니다.
-측정한 20종 중 쪽 표시가 없는 것은 6쪽짜리 지침과 훈령 둘뿐입니다.
+**테마는 9종**입니다. `themes/` 에 파일 하나가 테마 하나라 직접 더할 수 있습니다
+— [테마 만들기](skills/guideline-design/themes/README.md).
+
+| | |
+|---|---|
+| `nis` `field` `control` `manual` `print` | 측정에서 바로 나온 판면 |
+| `typo` `tab` `spec` `formal` | 타이포그래피 주도 · 장별 색과 측면 탭 · 기술 규격서 · 국가 간행물 |
+
+### 삽도
+
+같은 스킬이 **삽도도 그립니다.** 색은 조판 테마를 따르므로 `nis` 면 남색,
+`print` 면 흑백이 되고, 캡션은 `[그림 N-M]` 규칙이라 `guideline-lint` 검사를
+그대로 통과합니다.
+
+```bash
+python skills/guideline-design/figplan.py 원고.md --mode review   # 어디에 무엇이
+python skills/guideline-design/figures.py 계획.json --theme nis   # 그린다
+python skills/guideline-design/figplan.py 원고.md --mode auto --plan 계획.json
+```
+
+**두 단계인 이유가 있습니다.** `review` 가 내놓는 계획에는 명세가 비어 있고,
+원고를 읽고 채워야 그립니다. 도구가 혼자 노드와 연결을 지어내지 못하게 막은
+것입니다 — 원고에 없는 구성요소를 그린 도식은 그럴듯해서 더 위험합니다.
+
+이미지 생성 API 는 쓰지 않습니다. 사진 같은 그래픽이 필요하면 계획에 적어 두고
+발행기관이 따로 만듭니다. 규칙은
+[삽도 — 무엇을, 언제, 어떻게](skills/guideline-design/references/figure-design.md)에
+있습니다.
 
 수치의 근거는
 [발행본 디자인 측정값](skills/guideline-design/references/publication-design.md)에
@@ -162,6 +198,8 @@ korean-skills `style-guide` 에서 구조를 가져와 공문서 관례로 내�
 문체 일관성    govdoc-style
   ↓
 맞춤법         grammar-checker
+  ↓
+삽도          guideline-design        ← figplan.py 로 찾고 figures.py 로 그린다
   ↓
 배포본 조판     guideline-design        ← 원고가 확정된 뒤에 한다
 ```
