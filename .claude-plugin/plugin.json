@@ -1,0 +1,20 @@
+{
+  "name": "korea-security-guideline",
+  "description": "한국 정부·공공기관 형식의 사이버보안 가이드라인을 쓰고 검사하는 Claude Code 스킬 모음",
+  "version": "1.0.0",
+  "author": {
+    "name": "ssabro"
+  },
+  "homepage": "https://github.com/ssabro/korea-security-guideline-skill",
+  "repository": "https://github.com/ssabro/korea-security-guideline-skill",
+  "license": "MIT",
+  "keywords": [
+    "korean",
+    "security-guideline",
+    "cybersecurity",
+    "government-document",
+    "n2sf",
+    "technical-writing",
+    "compliance"
+  ]
+}

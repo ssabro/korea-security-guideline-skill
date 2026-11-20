@@ -1,0 +1,82 @@
+제3자 구성요소 고지
+====================
+
+이 저장소는 korean-skills(Dale Seo) 위에 세워져 있습니다. 다섯 개 스킬 중
+둘은 korean-skills 를 그대로 복사한 것이고, 하나는 korean-skills 에서 파생한
+것입니다. 아래에 무엇이 누구의 것인지 밝힙니다.
+
+--------------------------------------------------------------------
+korean-skills
+--------------------------------------------------------------------
+   저작자   : Dale Seo (https://github.com/DaleSeo)
+   출처     : https://github.com/DaleSeo/korean-skills
+   라이선스 : MIT License, Copyright (c) 2026 Dale Seo
+   리비전   : ae12ba2 (2026-11-19 복사)
+
+   (가) 수정 없이 복사한 스킬 2종
+        skills/grammar-checker/   <- korean-skills/skills/grammar-checker
+        skills/humanizer/         <- korean-skills/skills/humanizer
+
+        원본 파일을 한 글자도 바꾸지 않았습니다. 각 폴더의 ORIGIN.md 에
+        출처와 갱신 방법을 적어 두었습니다(ORIGIN.md 는 이 저장소가 추가한
+        파일이며 원본에는 없습니다).
+
+   (나) 구조를 가져와 내용을 교체한 파생 스킬 1종
+        skills/govdoc-style/   <- korean-skills/skills/style-guide
+
+        가져온 것 : 카테고리를 우선순위로 나누는 방식, 장르별 매트릭스,
+                    다수결 원칙, 참조 파일 분리, 작업 흐름 골격
+        교체한 것 : 문서 타입 4종을 공문서 장르(법령형 지침 / 분야별
+                    가이드라인 / 통제항목 체계 / 실무 안내서)로 교체,
+                    최우선 카테고리를 어조·격식에서 강제력 종결어미로 변경,
+                    기준의 출처를 한국 사이버보안 가이드라인 20종 실측값으로
+                    교체, 링크·참조 카테고리를 법령 인용·영문 병기로 대체
+
+        변경 내역은 skills/govdoc-style/SKILL.md 의
+        "원본과 달라진 점" 절에 있습니다.
+
+   (다) 가져오지 않은 것
+        style-guide 원본은 복사하지 않았습니다. 일반 문서(비즈니스·학술·
+        기술·마케팅)의 문체 일관성이 필요하면 업스트림 korean-skills 를
+        그대로 쓰는 편이 낫습니다.
+
+--------------------------------------------------------------------
+korean-skills MIT License 전문
+--------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) 2026 Dale Seo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+(같은 전문을 third-party/korean-skills-LICENSE 에도 두었습니다.)
+
+--------------------------------------------------------------------
+참조한 공개 문서
+--------------------------------------------------------------------
+   rules/ 의 규칙은 대한민국 정부·공공기관이 발행한 사이버보안
+   가이드라인 20종을 분석해 증류한 것입니다. 원본 문서는 이 저장소에
+   포함되지 않으며, 각 발행처의 이용조건을 따릅니다. rules/ 에는 문장이
+   아니라 구조·체계·표기 규칙과 측정 수치만 담았습니다.
+
+   가장 많이 참조한 문서:
+   - 국가 망 보안체계(N2SF) 보안 가이드라인 및 보안통제 항목 해설서
+   - 국가 사이버보안 기본지침
+   - 분야별 가이드라인(의료·전력·우주·클라우드·AI·SW 공급망·암호)

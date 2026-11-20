@@ -1,0 +1,39 @@
+# 공개하는 것은 스킬과 그 규칙뿐입니다.
+# 아래는 규칙을 뽑는 데 쓴 자료와 도구이며 저장소에 포함하지 않습니다.
+
+# 원본 가이드라인 PDF — 발행처 이용조건을 따름
+guidelines/
+
+# 변환된 전문 코퍼스·메타·검수 큐 — 원문 파생물
+corpus/
+
+# PDF→Markdown 변환 파이프라인, 글리프 복원, 코퍼스 측정 스크립트
+tools/
+
+# 측정 원본 데이터
+analysis/
+
+# 레퍼런스 폰트, 모양 대조 뱅크, 글리프 캐시
+refs/
+
+# 스킬을 시험해 보며 만든 예제 원고
+drafts/
+
+# 원본 문서
+*.pdf
+*.hwp
+*.hwpx
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# OS·에디터
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
