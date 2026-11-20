@@ -55,20 +55,32 @@ def find_chrome(path=None) -> str:
     return ''
 
 
-def art_pdf(theme: str, title: str, w: float, h: float, chrome: str,
-            motif: str = None) -> str:
-    """아트워크만 담은 한 쪽짜리 PDF 를 만들어 경로를 돌려준다."""
+MOTIFS = ('crystal', 'network', 'wave', 'grid')
+
+
+def art_pdf(theme: str, seeds: list, w: float, h: float, chrome: str,
+            motif: str = None, quiet: float = None) -> str:
+    """아트워크를 담은 PDF 를 만들어 경로를 돌려준다.
+
+    `seeds` 하나마다 한 쪽이다. 한 번의 인쇄로 여러 쪽을 만들어, 표지와 장
+    간지를 각각 따로 인쇄하지 않는다.
+    """
     import render
     import figures
     render.load_themes()
     t = dict(render.DEFAULTS, **render.THEMES.get(theme, {}))
-    svg = figures.build(dict(
-        type='cover', width=w * 4, height=h * 4,
-        motif=motif or t.get('motif', 'crystal'),
-        quiet=t.get('quiet', 0.62), seed=title),
-        figures.theme_palette_from(t))
-    svg = re.sub(r'<\?xml[^>]*\?>', '', svg)
-    svg = svg.replace('<svg ', '<svg preserveAspectRatio="none" ', 1)
+    pal = figures.theme_palette_from(t)
+    pages = []
+    for i, sd in enumerate(seeds):
+        mo = motif or (t.get('motif', 'crystal') if i == 0
+                       else MOTIFS[i % len(MOTIFS)])
+        svg = figures.build(dict(
+            type='cover', width=w * 4, height=h * 4, motif=mo,
+            quiet=t.get('quiet', 0.62) if quiet is None else quiet,
+            seed=sd), pal)
+        svg = re.sub(r'<\?xml[^>]*\?>', '', svg)
+        svg = svg.replace('<svg ', '<svg preserveAspectRatio="none" ', 1)
+        pages.append('<div class="pg">%s</div>' % svg)
 
     d = tempfile.mkdtemp(prefix='coverart-')
     html = os.path.join(d, 'a.html')
@@ -76,15 +88,42 @@ def art_pdf(theme: str, title: str, w: float, h: float, chrome: str,
         '<!doctype html><html><head><meta charset="utf-8"><style>'
         '@page{size:%gmm %gmm;margin:0}'
         'html,body{margin:0;padding:0}'
+        '.pg{break-after:page}'
         'svg{display:block;width:%gmm;height:%gmm}'
         '*{-webkit-print-color-adjust:exact;print-color-adjust:exact}'
-        '</style></head><body>%s</body></html>' % (w, h, w, h, svg))
+        '</style></head><body>%s</body></html>'
+        % (w, h, w, h, ''.join(pages)))
     out = os.path.join(d, 'a.pdf')
     subprocess.run([chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
                     '--no-pdf-header-footer', '--print-to-pdf=%s' % out,
                     '--virtual-time-budget=6000', 'file:///' + html.replace('\\', '/')],
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return out if os.path.exists(out) else ''
+
+
+def find_chapters(doc, skip: int, maxchars: int = 70) -> list:
+    """전면 장 간지 쪽을 찾는다. (쪽 번호, 씨앗) 목록.
+
+    장 번호가 쪽 맨 앞에 오고 **그 쪽의 글자가 아주 적은** 쪽만 고른다.
+    목차 쪽도 "제1장 개요 1 제1절 …" 으로 시작하지만 글자가 수백 자다.
+
+    전면 간지를 쓰지 않는 테마에서는 아무것도 찾지 못한다. 그때는 간지에
+    그림을 깔 자리가 없다는 뜻이므로 그대로 두면 된다.
+    """
+    out = []
+    for i in range(skip, doc.page_count):
+        flat = re.sub(r'\s+', '', doc[i].get_text())
+        if not flat or len(flat) > maxchars:
+            continue
+        m = re.match(r'^(?:제(\d+)장|(부록))', flat)
+        if not m:
+            m = re.search(r'제(\d+)장', flat[:40])
+            if not m:
+                continue
+            out.append((i, '제%s장' % m.group(1)))
+            continue
+        out.append((i, '제%s장' % m.group(1) if m.group(1) else '부록'))
+    return out
 
 
 def main(argv: list) -> int:
@@ -94,6 +133,10 @@ def main(argv: list) -> int:
     ap.add_argument('--title', default='가이드라인', help='무늬를 흩뜨리는 씨앗')
     ap.add_argument('--motif', default=None, help='crystal | network | wave | grid')
     ap.add_argument('--page', type=int, default=1, help='표지 쪽 번호. 기본 1')
+    ap.add_argument('--chapters', action='store_true',
+                    help='장 간지에도 깐다. 장마다 다른 무늬를 쓴다.')
+    ap.add_argument('--chapter-quiet', type=float, default=0.30,
+                    help='장 간지에서 무늬를 비울 위쪽 비율. 기본 0.30')
     ap.add_argument('--out', default=None)
     ap.add_argument('--chrome', default=None)
     a = ap.parse_args(argv)
@@ -111,21 +154,27 @@ def main(argv: list) -> int:
         return 2
 
     doc = fitz.open(a.source)
-    pg = doc[a.page - 1]
-    r = pg.rect
+    r = doc[a.page - 1].rect
     w, h = r.width * 25.4 / 72, r.height * 25.4 / 72
-    ap_ = art_pdf(a.theme, a.title, w, h, chrome, a.motif)
+
+    targets = [(a.page - 1, a.title)]
+    if a.chapters:
+        targets += find_chapters(doc, a.page)
+    ap_ = art_pdf(a.theme, [s for _, s in targets], w, h, chrome, a.motif)
     if not ap_:
         print('아트워크 PDF 를 만들지 못했다.')
         return 2
     art = fitz.open(ap_)
     # 글자 아래에 깐다. overlay=False 가 그 뜻이다.
-    pg.show_pdf_page(r, art, 0, overlay=False)
+    for i, (pno, _) in enumerate(targets):
+        if i < art.page_count:
+            doc[pno].show_pdf_page(doc[pno].rect, art, i, overlay=False)
     art.close()
     doc.save(out, deflate=True, garbage=3)
     doc.close()
     shutil.rmtree(os.path.dirname(ap_), ignore_errors=True)
-    print('%s  (표지 %d쪽에 아트워크를 깔았습니다)' % (out, a.page))
+    print('%s  (%d곳에 아트워크를 깔았습니다 — 표지와 간지 %d쪽)'
+          % (out, len(targets), len(targets) - 1))
     return 0
 
 

@@ -54,7 +54,7 @@ def pick_font(path=None):
 
 
 def paginate(src, dst, title, style, skip, start, margin, gray, fontpath=None,
-             end=0, head=False):
+             end=0, head=False, sparse=0):
     doc = fitz.open(src)
     fname, ffile = pick_font(fontpath)
     measure = fitz.Font(fontfile=ffile) if ffile else fitz.Font('korea')
@@ -68,6 +68,11 @@ def paginate(src, dst, title, style, skip, start, margin, gray, fontpath=None,
         if i < skip or i >= last:
             continue
         num = i - skip + start
+        if sparse:
+            # 전면 간지와 빈 쪽에는 쪽 장식을 넣지 않는다. 번호는 그대로 센다.
+            import re as _re
+            if len(_re.sub(r'\s+', '', page.get_text())) < sparse:
+                continue
         w, h = page.rect.width, page.rect.height
         outer_left = (num % 2 == 0)  # 짝수 쪽은 왼쪽이 바깥이다
         if ffile:
@@ -114,6 +119,9 @@ def main(argv: list) -> int:
     ap.add_argument('--font', default=None, help='한글 글꼴 파일 경로(.ttf/.otf).')
     ap.add_argument('--end', type=int, default=0,
                     help='번호를 넣지 않을 뒤쪽 수. 판권지가 있으면 1.')
+    ap.add_argument('--sparse', type=int, default=0, metavar='글자수',
+                    help='글자가 이보다 적은 쪽에는 번호·머리말을 넣지 않는다. '
+                         '전면 간지와 빈 쪽에 쓴다. 70 쯤이 알맞다.')
     ap.add_argument('--head', action='store_true',
                     help='아래 번호와 함께 위쪽에 문서명을 적는다.')
     a = ap.parse_args(argv)
@@ -126,7 +134,7 @@ def main(argv: list) -> int:
         print('원본을 덮어쓰지 않는다. --out 으로 다른 이름을 준다.')
         return 2
     n = paginate(a.source, out, a.title, a.style, a.skip, a.start, a.margin,
-                 a.gray, a.font, a.end, a.head)
+                 a.gray, a.font, a.end, a.head, a.sparse)
     print('%s  (%d쪽에 번호)' % (out, n))
     return 0
 

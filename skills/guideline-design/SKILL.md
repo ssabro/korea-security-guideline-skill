@@ -337,9 +337,27 @@ python render.py 원고.md --theme art --set motif=network --set page=190,260
 
 ```bash
 python render.py 원고.md --theme art --set motif=network
-# 인쇄한 뒤
-python coverart.py 책.pdf --theme art --title "문서명" --out 최종.pdf
+# 인쇄한 뒤 — 표지와 장 간지에 함께 깐다
+python coverart.py 책.pdf --theme art --title "문서명" --chapters --out 최종.pdf
 ```
+
+`--chapters` 는 **전면 장 간지**에도 깝니다. 장마다 무늬를 돌려 가며 쓰고,
+장 번호를 씨앗으로 삼아 같은 장은 늘 같은 그림이 나옵니다.
+
+간지를 찾는 규칙은 `book.py` 와 같되 하나를 더 봅니다 — **글자가 아주 적은
+쪽**만 고릅니다. 목차 첫 쪽도 "제1장 개요 1 제1절 …" 으로 시작하지만 글자가
+수백 자입니다. 전면 간지를 쓰지 않는 테마에서는 아무것도 찾지 못하며, 그때는
+간지에 그림을 깔 자리가 없다는 뜻입니다.
+
+간지에는 쪽번호와 머리말을 넣지 않습니다.
+
+```bash
+python paginate.py 책.pdf --style bottom --skip 8 --start 1 --end 1 --head   --sparse 70 --title "문서명"
+```
+
+`--sparse 70` 은 글자가 70자도 안 되는 쪽(전면 간지·빈 쪽)에 쪽 장식을 넣지
+않습니다. **번호는 그대로 셉니다** — 찍지 않을 뿐입니다. 전면 색면에 회색
+머리말이 찍히면 얼룩처럼 보입니다.
 
 **왜 인쇄 뒤에 깔까요.** CSS 로는 종이 끝까지 채우지 못했습니다. `@page cover
 {margin:0}` 과 `height:257mm` 를 줘도 인쇄에서 상자가 232.8mm 에서 잘립니다 —
