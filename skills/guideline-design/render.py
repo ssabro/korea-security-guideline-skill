@@ -591,7 +591,10 @@ h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
 .cv-art .cvbot{position:absolute;z-index:1;left:0;right:0;bottom:15mm;
  padding:0 16mm;margin:0}
 .cv-art .ckind{color:#fff;opacity:.9}
-.cv-art .ctitle{text-shadow:0 1px 10px rgba(0,0,0,.22)}
+/* `text-shadow` 는 쓰지 않는다. Chrome 인쇄에서 글자가 PDF 글자층에
+   **두 번 찍혀** 표지 제목을 복사하면 같은 말이 두 번 나온다. 실제로
+   배포본에서 그렇게 나왔다. 어두운 그림 위의 흰 글자는 `coverart.py`
+   가 제목 자리를 비워 두므로(`quiet`) 그림자 없이도 읽힌다. */
 .cv-art .cdate,.cv-art .cver{color:rgba(255,255,255,.82)}
 .cv-art .corg{color:#fff}
 .cvlogo{display:flex;gap:9mm;align-items:center;justify-content:center;
