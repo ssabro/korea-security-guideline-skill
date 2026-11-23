@@ -1595,6 +1595,41 @@ def check_num_particle(doc: Doc) -> None:
                 "`로/으로`는 ㄹ받침이 예외라 1·7·8도 `로`를 씁니다.")
 
 
+def check_name_drift(doc: Doc) -> None:
+    """같은 통제 ID 의 소항목 이름이 표마다 다른 곳.
+
+    통제 하나가 본문 표·대응표·조달표에 여러 번 나온다. 이름을 바꿀 때
+    한 곳을 놓치면 읽는 사람이 다른 통제로 안다.
+    """
+    names: dict[str, dict[str, int]] = {}
+    for n, l in body_lines(doc):
+        if not TABLE_ROW.match(l):
+            continue
+        c = cells_of(l)
+        if len(c) < 3:
+            continue
+        m = RX_ID_OK.fullmatch(c[0])
+        if not m or m.group(1) in ID_IGNORE_PREFIX:
+            continue
+        nm = c[1].strip()
+        # 이름 칸이어야 한다 — 짧고, 설명문이 아니다
+        if not nm or len(nm) > 24 or nm in ('—', '-') or '.' in nm:
+            continue
+        names.setdefault(c[0], {}).setdefault(nm, n)
+    bad = {k: v for k, v in names.items() if len(v) > 1}
+    if not bad:
+        return
+    shown = ", ".join('%s(%s)' % (k, ' / '.join(sorted(v)))
+                      for k in sorted(bad)[:3] for v in [bad[k]])
+    doc.add_agg("NAME-DRIFT", "warn",
+                [min(v.values()) for v in bad.values()],
+                f"같은 통제 ID 의 소항목 이름이 표마다 다릅니다 — "
+                f"{len(bad)}종 ({shown})",
+                "통제 하나가 본문 표·대응표·조달표에 여러 번 나옵니다. "
+                "이름을 바꿀 때 한 곳을 놓치면 읽는 사람이 다른 통제로 "
+                "압니다. 모두 같은 이름으로 맞추세요.")
+
+
 CHECKS = {
     "ENDING-MIX": check_ending_mix,
     "HONORIFIC": check_honorific,
@@ -1626,6 +1661,7 @@ CHECKS = {
     "XREF": check_xref,
     "CAPTION-SEQ": check_caption_seq,
     "PARTICLE-NUM": check_num_particle,
+    "NAME-DRIFT": check_name_drift,
 }
 
 # 한 검사가 여러 코드를 낼 수 있으므로 --only 용 별칭을 둔다

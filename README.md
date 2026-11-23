@@ -113,7 +113,7 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 
 **검사는 줄 단위로 합니다.** 원고는 한 문단을 한 줄로 쓰세요 — 폭에 맞춰 감아 두면 주기나 용어가 다른 줄에 떨어져 잘못 지적됩니다. 줄바꿈이 들어간 원고는 `python skills/guideline-writer/unwrap.py 원고.md`로 펼칩니다.
 
-표준 라이브러리만 씁니다. 기계적으로 판정할 수 있는 47개 항목을 검사합니다.
+표준 라이브러리만 씁니다. 기계적으로 판정할 수 있는 48개 항목을 검사합니다.
 
 | 등급 | 항목 |
 |---|---|
