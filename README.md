@@ -60,23 +60,25 @@ python skills/guideline-lint/lint.py 원고.md            # 검사
 python skills/guideline-design/publish.py 원고.md       # 배포본 PDF
 ```
 
-`publish.py`가 조판·인쇄·책 구성·목차 쪽번호·검증·쪽번호를 차례로 돌립니다. 수동으로 실행하면 명령을 열두 번 입력하고 단계마다 `--skip` 값을 옮겨 적어야 합니다. `publish.py`는 그 값을 도구끼리 전달하므로 옮겨 적다 틀릴 일이 없습니다. 100쪽 문서에 약 30초 걸립니다.
+`publish.py`가 조판·인쇄·책 구성·목차 쪽번호·검증·쪽번호·표지 아트워크를 차례로 돌립니다. 수동으로 실행하면 명령을 열두 번 입력하고 단계마다 `--skip` 값을 옮겨 적어야 합니다. `publish.py`는 그 값을 도구끼리 전달하므로 옮겨 적다 틀릴 일이 없습니다. 100쪽 문서에 약 40초 걸립니다.
 
 ```
-[1/7] 조판 — 국정원 표준형
-[2/7] 인쇄 (1차)
-[3/7] 책 구성
+[1/8] 조판 — 국가정보원 계열
+[2/8] 인쇄 (1차)
+[3/8] 책 구성
   앞붙이 8쪽 · 본문 9쪽부터 · 빈 쪽 3장
-[4/7] 목차 쪽번호
+[4/8] 목차 쪽번호
   39항목 중 39개를 찾았습니다
-[5/7] 재조판·재인쇄
-[6/7] 검증
+[5/8] 재조판·재인쇄
+[6/8] 검증
   쪽이 밀린 항목 없음
-[7/7] 쪽번호
-  91쪽에 번호
+[7/8] 쪽번호
+  100쪽에 번호
+[8/8] 표지 아트워크
+  그림 8쪽 (표지·간지·뒤표지)
 
 공공기관 ROS 2 기반 ... 가이드라인.pdf
-106쪽 · 188x257mm · 9.4MB · 30초
+112쪽 · 188x257mm · 9.5MB · 38초
 통제항목 156 / 156
 ```
 
@@ -111,7 +113,7 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 
 **검사는 줄 단위로 합니다.** 원고는 한 문단을 한 줄로 쓰세요 — 폭에 맞춰 감아 두면 주기나 용어가 다른 줄에 떨어져 잘못 지적됩니다. 줄바꿈이 들어간 원고는 `python skills/guideline-writer/unwrap.py 원고.md`로 펼칩니다.
 
-표준 라이브러리만 씁니다. 기계적으로 판정할 수 있는 25개 항목을 검사합니다.
+표준 라이브러리만 씁니다. 기계적으로 판정할 수 있는 31개 항목을 검사합니다.
 
 | 등급 | 항목 |
 |---|---|
@@ -133,19 +135,26 @@ python skills/guideline-lint/lint.py 원고.md --genre control --quiet
 python skills/guideline-design/publish.py 원고.md --theme nis
 ```
 
-명령 하나가 일곱 단계를 돌립니다. 단계별로 따로 부르고 싶으면 [SKILL.md](skills/guideline-design/SKILL.md)에 `render` · `book` · `toc` · `paginate` · `coverart`를 각각 쓰는 법이 있습니다.
+명령 하나가 여덟 단계를 돌립니다. 단계별로 따로 부르고 싶으면 [SKILL.md](skills/guideline-design/SKILL.md)에 `render` · `book` · `toc` · `paginate` · `coverart`를 각각 쓰는 법이 있습니다.
 
 빈 쪽은 원고에 직접 넣지 않고 인쇄한 뒤에 필요한 만큼만 끼웁니다 — 브라우저가 `break-before: recto`를 무시하기 때문입니다. 결과 HTML은 외부 자원을 하나도 받아오지 않아 망 분리 환경에서 그대로 열립니다.
 
 기관이 이미 펴낸 책이 있으면 그 판면을 재서 테마를 만들 수 있습니다 — [기관에 맞추기](#기관에-맞추기).
 
-**테마는 10종**입니다. `themes/`에 파일 하나가 테마 하나라 직접 더할 수 있습니다 — [테마 만들기](skills/guideline-design/themes/README.md).
+**테마는 11종**입니다. `themes/`에 파일 하나가 테마 하나라 직접 더할 수 있습니다 — [테마 만들기](skills/guideline-design/themes/README.md).
 
 | | |
 |---|---|
 | `nis` `field` `control` `manual` `print` | 측정에서 바로 나온 판면 |
-| `typo` `tab` `spec` `formal` | 타이포그래피 주도 · 장별 색과 측면 탭 · 기술 규격서 · 국가 간행물 |
-| `art` | 전면 기하 아트워크 표지에 기관 로고 |
+| `kisa` `brief` `wide` | 특정 발행본의 색과 지면을 그대로 따른 것 — 같은 기관 자료와 통일감이 필요할 때 |
+| `typo` `spec` | 타이포그래피 주도 · 기술 규격서 |
+| `art` | 전면 기하 아트워크 표지 |
+
+표지와 장 간지의 그림은 **제목에서 주제를 골라** 그립니다. 로봇 가이드라인이면 로봇을, 선박이면 배를 그립니다. 사용자가 디자인을 고르겠다고 하면 `samples.py`가 테마별 지면을 그림으로 떠서 작업 폴더에 비교표를 남깁니다.
+
+```bash
+python skills/guideline-design/samples.py 원고.md --out 샘플   # 샘플/index.html 을 열어 고른다
+```
 
 ### 삽도
 
