@@ -71,17 +71,26 @@ def find_marks(doc, marks: list, start: int = 1) -> list:
     return out
 
 
-def find_body(doc, mark: str, start: int = 1, head: int = 44) -> int:
+def find_body(doc, mark: str, start: int = 1,
+              head: int = 44, maxchars: int = 420) -> int:
     """본문이 시작하는 쪽을 찾는다. 못 찾으면 -1.
 
     장 간지는 장 번호가 **쪽 맨 앞**에 온다. 본문 중간의 장 참조는 글 속에
     묻히므로 앞 `head` 글자만 본다. 테마가 번호와 제목의 순서를 바꾸거나
     (`개요 제1장`) 자간을 벌려도(`제 1 장`) 그 범위 안에 들어온다.
+
+    간지가 그 장의 **절 목록**을 함께 실으면서 이 기준만으로는 모자라게
+    되었다. 테마에 따라 글자가 `개요 개요 제1절 … 제1장` 순으로 추출되어
+    장 번호가 44 자 밖으로 밀린다. 그래서 **쪽 전체가 짧으면**(`maxchars`
+    이하) 어디에 있든 찾은 것으로 본다. 장을 가리키는 본문 쪽은 700 자가
+    넘으므로 섞이지 않는다.
     """
     want = squeeze(mark).replace(' ', '')
     for i in range(start, doc.page_count):
         flat = squeeze(doc[i].get_text()).replace(' ', '')
         if want in flat[:head]:
+            return i
+        if len(flat) <= maxchars and want in flat:
             return i
     return -1
 

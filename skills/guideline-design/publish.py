@@ -108,7 +108,15 @@ def main(argv: list) -> int:
     if a.sets:
         th = render.apply_sets(th, a.sets)
         render.THEMES[a.theme] = th
-    art = (a.cover_art or th.get('cover') == 'art') and not a.no_cover_art
+    # `cover` 는 표지 **짜임**의 이름이고 CSS 선택자(`cv-side` 등)와 묶여
+    # 있다. 아트워크를 쓸지는 `cover_art` 로 따로 정한다 — 둘을 한 열쇠로
+    # 묶으면 아트워크를 켜는 순간 그 테마의 표지 CSS 가 통째로 꺼진다.
+    # `cover` 는 표지 **짜임**의 이름이고 CSS 선택자(`cv-side` 등)와 묶여
+    # 있다. 아트워크를 쓸지는 `cover_art` 로 따로 정한다 — 둘을 한 열쇠로
+    # 묶으면 아트워크를 켜는 순간 그 테마의 표지 CSS 가 통째로 꺼진다.
+    want_art = (a.cover_art or th.get('cover') == 'art'
+                or th.get('cover_art'))
+    art = want_art and not a.no_cover_art
 
     base = os.path.dirname(os.path.abspath(a.source))
     md = io.open(a.source, encoding='utf-8').read()
@@ -188,8 +196,19 @@ def main(argv: list) -> int:
         doc = fitz.open(out)
         r = doc[0].rect
         w, h = r.width * 25.4 / 72, r.height * 25.4 / 72
-        targets = [(0, title)] + coverart.find_chapters(doc, 1)
-        ap_ = coverart.art_pdf(a.theme, [s for _, s in targets], w, h, chrome)
+        # 간지 아트워크는 테마가 끌 수 있다. 간지를 희게 두거나 전면
+        # 쪽으로 쓰지 않는 테마에서는 그림이 글자를 덮기만 한다.
+        targets = [(0, title)]
+        if th.get('chapter_art', True):
+            targets += coverart.find_chapters(doc, 1)
+        # 뒤표지 — 발행본은 마지막 쪽을 조용히 둔다. 테마가 원하면 둥근
+        # 기둥에 보안 아이콘을 쌓은 무늬를 깐다.
+        motifs = [None] * len(targets)
+        if th.get('back_art'):
+            targets.append((doc.page_count - 1, title))
+            motifs.append('pill')
+        ap_ = coverart.art_pdf(a.theme, [s for _, s in targets], w, h, chrome,
+                               motifs=motifs)
         if ap_:
             src = fitz.open(ap_)
             for i, (pno, _) in enumerate(targets):
@@ -201,7 +220,8 @@ def main(argv: list) -> int:
             doc.close()
             shutil.move(tmp, out)
             shutil.rmtree(os.path.dirname(ap_), ignore_errors=True)
-            print('  표지와 간지 %d쪽' % (len(targets) - 1))
+            print('  그림 %d쪽 (표지·간지%s)'
+                  % (len(targets), '·뒤표지' if th.get('back_art') else ''))
         else:
             doc.close()
             print('  ! 아트워크를 만들지 못했습니다. 그림 없이 두었습니다.')

@@ -22,9 +22,29 @@ EXTRA_CSS = """ ... """
 | `badge` | 배지 모서리 `pill`(둥근) `tag`(살짝) `square`(각진) | `pill` |
 | `chapter` | 장을 `page`(새 쪽) 또는 `inline` | `page` |
 | `cover` | 표지 꼴 `rule` `band` `side` `tint` | `rule` |
+| `cover_art` | 표지에 그림을 깐다 | 없음 |
+| `chapter_art` | 장 간지에도 깐다. **간지를 전면 쪽으로 쓰지 않는 테마는 `False`** | `True` |
+| `motif` | 바탕 무늬 `subject` `crystal` `network` `wave` `grid` | `crystal` |
+| `cover_bg` | 표지 바탕 `white` 또는 비움(주조색 그러데이션) | 비움 |
+| `quiet` | 표지 위에서부터 그림을 비울 비율 — **제목 자리** | `0.62` |
+| `art_accent2` | 간지 그러데이션에 쓸 보조색. 점색을 주조색과 섞지 않으려 할 때 | 없음 |
 | `mark` | 등급 표시 글자 | `●` |
 
 수치는 발행본 20종을 잰 값에서 가져오세요 — [publication-design.md](../references/publication-design.md). 측정에 없는 값을 쓸 때는 **왜 그 값인지 주석으로 적으세요.**
+
+## 표지 그림
+
+`cover_art=True` 면 **제목에서 주제를 골라** 그림을 그린다. 로봇 가이드라인
+이면 로봇을, 선박이면 배를 그린다(`figures.subject_of`). 알아보는 주제는
+로봇·드론·선박·전력·의료·AI·클라우드·암호·공급망·망·데이터이고, 못 고르면
+방패를 그린다.
+
+그림은 **인쇄한 뒤** `coverart.py` 가 깐다. 그래서 테마의 `.cover` 와
+`.chapter` 는 **바탕을 투명하게** 둬야 한다. `background:#fff` 를 두면
+그림이 가려진다.
+
+`quiet` 위쪽과 쪽 아래 26% 는 그림이 비켜 간다. 제목이 길어 아래로 내려오는
+테마는 `quiet` 를 올려야 한다 — 그러지 않으면 그림이 제목을 덮는다.
 
 ## EXTRA_CSS
 

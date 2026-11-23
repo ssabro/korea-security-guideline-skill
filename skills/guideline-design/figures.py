@@ -472,6 +472,175 @@ def draw_hero(spec: dict, pal: dict) -> Canvas:
     return c
 
 
+# ── 표지 주제 ────────────────────────────────────────────────────────
+# 제목에 나오는 낱말로 무엇을 그릴지 정한다. 앞에 오는 것이 먼저 걸린다.
+SUBJECTS = [
+    ('robot',  ('로봇', 'ROS', '자율주행', '무인이동체')),
+    ('drone',  ('드론', '무인기', 'UAV', '비행')),
+    ('ship',   ('선박', '해양', '항만', '자율운항')),
+    ('power',  ('전력', '전력망', '송전', '스마트그리드', '에너지')),
+    ('medical', ('의료', '병원', '환자', '보건')),
+    ('ai',     ('AI', '인공지능', '생성형', '머신러닝', '학습모델')),
+    ('cloud',  ('클라우드', 'SaaS', '가상화', '컨테이너')),
+    ('chip',   ('암호', '양자', '반도체', '키관리', '인증서')),
+    ('supply', ('공급망', 'SBOM', '소프트웨어자재', '조달')),
+    ('net',    ('망', '네트워크', '통신', '분리')),
+    ('data',   ('데이터', '정보', '로그', '개인정보')),
+]
+
+
+def subject_of(title: str) -> str:
+    """제목에서 표지에 그릴 주제를 고른다. 못 고르면 'shield'."""
+    s = re.sub(r'\s+', '', title or '')
+    up = s.upper()
+    for name, keys in SUBJECTS:
+        for k in keys:
+            if k.upper() in up:
+                return name
+    return 'shield'
+
+
+def draw_subject(c, kind, cx, cy, s, ink, op, sw):
+    """주제 모양을 (cx, cy) 를 가운데로 크기 `s` 만큼 그린다.
+
+    선과 면으로만 그린다. 사진처럼 보이게 하지 않는다 — 지어낸 사진은
+    문서가 말하지 않는 것을 말하게 된다.
+    """
+    import math as m
+
+    def rect(x, y, w, h, r=0, fill='none', o=None):
+        c.add('<rect x="%g" y="%g" width="%g" height="%g" rx="%g" fill="%s" '
+              'stroke="%s" stroke-width="%g" opacity="%g"/>'
+              % (x, y, w, h, r, fill, 'none' if fill != 'none' else ink,
+                 sw, op if o is None else o))
+
+    def out(x, y, w, h, r=0, o=None):
+        c.add('<rect x="%g" y="%g" width="%g" height="%g" rx="%g" fill="none" '
+              'stroke="%s" stroke-width="%g" opacity="%g"/>'
+              % (x, y, w, h, r, ink, sw, op if o is None else o))
+
+    def dot(x, y, r, o=None):
+        c.add('<circle cx="%g" cy="%g" r="%g" fill="%s" opacity="%g"/>'
+              % (x, y, r, ink, op if o is None else o))
+
+    def ring(x, y, r, o=None, w=None):
+        c.add('<circle cx="%g" cy="%g" r="%g" fill="none" stroke="%s" '
+              'stroke-width="%g" opacity="%g"/>'
+              % (x, y, r, ink, w or sw, op if o is None else o))
+
+    def ln(x1, y1, x2, y2, o=None, w=None):
+        c.add('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+              'stroke-width="%g" stroke-linecap="round" opacity="%g"/>'
+              % (x1, y1, x2, y2, ink, w or sw, op if o is None else o))
+
+    def path(d, o=None, w=None, fill='none'):
+        c.add('<path d="%s" fill="%s" stroke="%s" stroke-width="%g" '
+              'stroke-linecap="round" opacity="%g"/>'
+              % (d, fill, ink, w or sw, op if o is None else o))
+
+    if kind == 'robot':
+        out(cx - s * .62, cy - s * .50, s * 1.24, s * .50, s * .10)
+        out(cx - s * .28, cy - s * .76, s * .56, s * .26, s * .06)
+        for g in (-1, 1):
+            dot(cx + g * s * .13, cy - s * .63, s * .045)
+        rect(cx - s * .14, cy - s * .91, s * .28, s * .15, s * .04, ink)
+        for k in range(3):
+            a = m.radians(208 + k * 22)
+            ln(cx, cy - s * .88, cx + s * .86 * m.cos(a),
+               cy - s * .88 + s * .86 * m.sin(a), op * .34, sw * .6)
+        for g in (-1, 1):
+            ring(cx + g * s * .36, cy + s * .12, s * .14)
+        ln(cx - s * .36, cy + s * .12, cx + s * .36, cy + s * .12, op * .5, sw * .7)
+    elif kind == 'drone':
+        for gx in (-1, 1):
+            for gy in (-1, 1):
+                ring(cx + gx * s * .62, cy + gy * s * .34, s * .26, op * .8)
+                ln(cx + gx * s * .20, cy + gy * s * .12,
+                   cx + gx * s * .50, cy + gy * s * .28)
+        out(cx - s * .24, cy - s * .16, s * .48, s * .32, s * .07)
+        dot(cx, cy, s * .07)
+    elif kind == 'ship':
+        path('M %g %g L %g %g L %g %g L %g %g Z'
+             % (cx - s * .70, cy + s * .10, cx + s * .70, cy + s * .10,
+                cx + s * .48, cy + s * .46, cx - s * .48, cy + s * .46))
+        out(cx - s * .34, cy - s * .22, s * .62, s * .32, s * .04)
+        ln(cx + s * .44, cy + s * .10, cx + s * .44, cy - s * .62)
+        for k in range(3):
+            ln(cx - s * .72, cy + s * .62 + k * s * .14,
+               cx + s * .72, cy + s * .62 + k * s * .14, op * .35, sw * .7)
+    elif kind == 'power':
+        path('M %g %g L %g %g L %g %g L %g %g L %g %g L %g %g Z'
+             % (cx + s * .16, cy - s * .76, cx - s * .34, cy + s * .04,
+                cx - s * .02, cy + s * .04, cx - s * .16, cy + s * .76,
+                cx + s * .36, cy - s * .06, cx + s * .02, cy - s * .06))
+        ring(cx, cy, s * .92, op * .30)
+    elif kind == 'medical':
+        ring(cx, cy, s * .72, op * .8)
+        ln(cx - s * .34, cy, cx + s * .34, cy)
+        ln(cx, cy - s * .34, cx, cy + s * .34)
+    elif kind == 'ai':
+        for k in range(3):
+            for j in range(3):
+                dot(cx + (j - 1) * s * .56, cy + (k - 1) * s * .46, s * .07,
+                    op * (.6 + .14 * j))
+        for k in range(3):
+            for j in range(2):
+                ln(cx + (j - 1) * s * .56, cy + (k - 1) * s * .46,
+                   cx + j * s * .56, cy + ((k + 1) % 3 - 1) * s * .46,
+                   op * .34, sw * .7)
+    elif kind == 'cloud':
+        path('M %g %g A %g %g 0 0 1 %g %g A %g %g 0 0 1 %g %g '
+             'A %g %g 0 0 1 %g %g Z'
+             % (cx - s * .62, cy + s * .22, s * .30, s * .30,
+                cx - s * .30, cy - s * .10, s * .36, s * .36,
+                cx + s * .34, cy - s * .12, s * .30, s * .30,
+                cx + s * .62, cy + s * .22))
+        ln(cx - s * .62, cy + s * .22, cx + s * .62, cy + s * .22)
+    elif kind == 'chip':
+        out(cx - s * .46, cy - s * .46, s * .92, s * .92, s * .08)
+        out(cx - s * .20, cy - s * .20, s * .40, s * .40, s * .04, op * .7)
+        for k in range(4):
+            q = -s * .30 + k * s * .20
+            ln(cx + q, cy - s * .46, cx + q, cy - s * .76, op * .7)
+            ln(cx + q, cy + s * .46, cx + q, cy + s * .76, op * .7)
+            ln(cx - s * .46, cy + q, cx - s * .76, cy + q, op * .7)
+            ln(cx + s * .46, cy + q, cx + s * .76, cy + q, op * .7)
+    elif kind == 'supply':
+        for k in range(3):
+            x = cx + (k - 1) * s * .62
+            out(x - s * .22, cy - s * .22, s * .44, s * .44, s * .05)
+            if k < 2:
+                ln(x + s * .22, cy, x + s * .40, cy, op * .6)
+        dot(cx, cy, s * .06)
+    elif kind == 'net':
+        pts = [(cx, cy - s * .70), (cx - s * .66, cy - s * .10),
+               (cx + s * .66, cy - s * .10), (cx - s * .40, cy + s * .62),
+               (cx + s * .40, cy + s * .62)]
+        for i, p in enumerate(pts):
+            for q in pts[i + 1:]:
+                ln(p[0], p[1], q[0], q[1], op * .34, sw * .7)
+        for p in pts:
+            dot(p[0], p[1], s * .09)
+    elif kind == 'data':
+        for k in range(3):
+            y = cy - s * .40 + k * s * .40
+            c.add('<ellipse cx="%g" cy="%g" rx="%g" ry="%g" fill="none" '
+                  'stroke="%s" stroke-width="%g" opacity="%g"/>'
+                  % (cx, y, s * .56, s * .18, ink, sw, op * (1 - k * .18)))
+        ln(cx - s * .56, cy - s * .40, cx - s * .56, cy + s * .40, op * .7)
+        ln(cx + s * .56, cy - s * .40, cx + s * .56, cy + s * .40, op * .7)
+    else:  # shield — 어느 가이드라인에나 맞는 바탕
+        path('M %g %g L %g %g L %g %g Q %g %g %g %g Q %g %g %g %g Z'
+             % (cx - s * .58, cy - s * .62, cx + s * .58, cy - s * .62,
+                cx + s * .58, cy + s * .04, cx + s * .58, cy + s * .50,
+                cx, cy + s * .74, cx - s * .58, cy + s * .50,
+                cx - s * .58, cy + s * .04))
+        rect(cx - s * .17, cy - s * .06, s * .34, s * .34, s * .05, ink)
+        path('M %g %g A %g %g 0 0 1 %g %g'
+             % (cx - s * .11, cy - s * .06, s * .11, s * .11,
+                cx + s * .11, cy - s * .06), None, sw * 1.6)
+
+
 def draw_cover(spec: dict, pal: dict) -> Canvas:
     """표지 아트워크. 판면을 꽉 채우는 기하 구성을 그린다.
 
@@ -481,6 +650,12 @@ def draw_cover(spec: dict, pal: dict) -> Canvas:
       network  점과 선으로 짠 망. 통신·연계를 다루는 문서에
       wave     동심원 호. 넓은 범위·전파를 다루는 문서에
       grid     아이소메트릭 격자. 체계·구조를 다루는 문서에
+      pill     뒤표지용. 둥근 기둥에 보안 아이콘을 쌓는다. 제목은
+               조판기가 옆에 둔다.
+      subject  비스듬한 띠 위에 **제목에서 고른 주제 그림**과 노드 망,
+               마디의 자물쇠. 로봇·선박·전력·의료·AI·클라우드·암호·
+               공급망·망·데이터를 알아보고, 못 고르면 방패를 그린다.
+               `robot`·`auto` 도 같은 무늬를 가리킨다.
 
     **글자가 앉을 자리(`quiet`)는 비워 둔다.** 작은 글자 뒤에 무늬가 깔리면
     읽히지 않는다. `quiet` 는 위에서부터의 비율이다(기본 0.62).
@@ -495,14 +670,22 @@ def draw_cover(spec: dict, pal: dict) -> Canvas:
     qy = H * quiet
     mono = pal['mono']
 
+    # 바탕을 고른다. 발행본의 표지는 전면 색과 흰 바탕이 반반이다.
+    #   gradient  주조색 그러데이션 위에 흰 무늬 (기본)
+    #   white     흰 바탕에 주조색 무늬 — 글자를 검게 앉히는 표지에 쓴다
+    white_bg = spec.get('bg') == 'white'
     base = grad(c, 'cvbg', pal['accent'], pal['accent2'], 155)
-    if mono:
+    if mono or white_bg:
         c.rect(0, 0, W, H, '#ffffff', 'none', 0, 0)
     else:
         c.rect(0, 0, W, H, base, 'none', 0, 0)
 
-    line = pal['ink'] if mono else '#ffffff'
-    soft = 0.10 if not mono else 0.22
+    if mono:
+        line, soft = pal['ink'], 0.22
+    elif white_bg:
+        line, soft = pal['accent2'], 0.30
+    else:
+        line, soft = '#ffffff', 0.10
 
     def poly(pts, fill, op):
         c.add('<polygon points="%s" fill="%s" opacity="%g"/>'
@@ -544,6 +727,107 @@ def draw_cover(spec: dict, pal: dict) -> Canvas:
                   'stroke-width="%g" opacity="%g"/>'
                   % (cx, cy, r, line, 1.4 if i % 3 == 0 else 0.7,
                      soft * (2.4 - i * 0.14)))
+    elif motif in ('subject', 'robot', 'auto'):
+        # ── 대각 띠 두 장 ──────────────────────────────
+        # 흰 바탕이면 띠가 짙어야 하고, 색 바탕이면 띠가 밝아야 한다.
+        dark = pal['accent'] if (white_bg or mono) else '#ffffff'
+        lite = pal['accent2'] if (white_bg or mono) else '#ffffff'
+        d_op = 1.0 if white_bg else 0.18
+        l_op = 0.22 if white_bg else 0.12
+
+        # 맨 아래는 비워 둔다. 날짜·기관·로고가 앉는 자리라 무늬가 깔리면
+        # 글자가 읽히지 않는다. 원본도 아래 한 뼘은 희다.
+        #
+        # 발행 정보는 쪽 아래 25% 안에 들어온다(날짜·기관·버전·로고).
+        # 띠가 기울어 있어 아래 모서리가 안쪽으로 들어오므로, 끝나는
+        # 높이를 넉넉히 잡지 않으면 날짜와 닿는다.
+        foot = H * 0.70
+        A = foot - qy                    # 무늬가 쓸 수 있는 높이
+        bx, bw2_, sk = W * 0.07, W * 0.26, W * 0.13
+        poly([(bx, qy), (bx + bw2_, qy),
+              (bx + bw2_ + sk, foot), (bx + sk, foot)], dark, d_op)
+        poly([(W * -0.04, qy + A * 0.62), (W * 0.56, qy + A * 0.16),
+              (W * 1.02, qy + A * 0.38), (W * 0.42, foot)],
+             lite, l_op)
+
+        ink = '#ffffff' if white_bg else pal['accent']
+        iop = 0.95 if white_bg else 0.88
+        sw = W * 0.0052
+
+        # ── 주제 그림 ─────────────────────────────────
+        # 무엇을 그릴지는 **제목에서 고른다**. 로봇 가이드라인에는 로봇을,
+        # 선박 가이드라인에는 배를 그린다. 아무 무늬나 깔면 겉돈다.
+        kind = spec.get('subject') or subject_of(str(spec.get('seed', '')))
+        rf = 0.60                           # 띠를 따라 내려온 비율
+        rx = bx + bw2_ * 0.5 + sk * rf
+        ry = qy + A * rf
+        draw_subject(c, kind, rx, ry, W * 0.088, ink, iop, sw)
+        bw2 = W * 0.072
+
+        # ── 노드 망 — 주제 그림에서 오른쪽 위로 뻗는다 ──────
+        # 통신 구간을 점과 선으로 보이고, 마디 몇 곳에 자물쇠를 단다.
+        net = pal['accent'] if (white_bg or mono) else '#ffffff'
+        nop = 0.30 if white_bg else 0.30
+        hub = (rx + bw2 * 1.5, ry - W * 0.046)
+        nodes = [hub]
+        for i in range(7):
+            a = _m.radians(-78 + ((seed * 11 + i * 47) % 86) + i * 9)
+            rr = W * (0.14 + 0.055 * ((seed + i * 37) % 100) / 100.0) * (1 + i * 0.22)
+            nodes.append((hub[0] + rr * _m.cos(a) * 1.06,
+                          hub[1] + rr * _m.sin(a) * 0.74))
+        for i, p in enumerate(nodes):
+            for q in nodes[i + 1:]:
+                if _m.hypot(p[0] - q[0], p[1] - q[1]) < W * 0.30:
+                    c.add('<line x1="%g" y1="%g" x2="%g" y2="%g" stroke="%s" '
+                          'stroke-width="0.9" opacity="%g"/>'
+                          % (p[0], p[1], q[0], q[1], net, nop * 0.62))
+        # 마디 — 두 곳에 자물쇠를 달아 통신 구간을 지킨다는 뜻을 둔다
+        for i, p in enumerate(nodes[1:], 1):
+            if i % 3:
+                c.add('<circle cx="%g" cy="%g" r="%g" fill="%s" '
+                      'opacity="%g"/>' % (p[0], p[1], W * 0.0062, net, nop))
+                continue
+            s = W * 0.026
+            c.add('<rect x="%g" y="%g" width="%g" height="%g" rx="%g" '
+                  'fill="none" stroke="%s" stroke-width="%g" opacity="%g"/>'
+                  % (p[0] - s, p[1] - s, s * 2, s * 2, s * 0.28,
+                     net, W * 0.0026, nop * 1.5))
+            c.add('<rect x="%g" y="%g" width="%g" height="%g" rx="%g" '
+                  'fill="%s" opacity="%g"/>'
+                  % (p[0] - s * 0.34, p[1] - s * 0.02, s * 0.68, s * 0.50,
+                     s * 0.08, net, nop * 1.4))
+            c.add('<path d="M %g %g A %g %g 0 0 1 %g %g" fill="none" '
+                  'stroke="%s" stroke-width="%g" opacity="%g"/>'
+                  % (p[0] - s * 0.20, p[1] - s * 0.02, s * 0.20, s * 0.20,
+                     p[0] + s * 0.20, p[1] - s * 0.02,
+                     net, W * 0.0026, nop * 1.4))
+        c.add('<circle cx="%g" cy="%g" r="%g" fill="%s" opacity="%g"/>'
+              % (hub[0], hub[1], W * 0.0085, ink, iop * 0.8))
+
+    elif motif == 'pill':
+        # ── 뒤표지 — 둥근 기둥에 쌓은 아이콘 ───────────
+        # 쪽 가운데 왼쪽에 기둥을 세우고 옆에 제목을 둔다. 글자는 조판기가
+        # 내므로 여기서는 기둥과 아이콘만 그린다.
+        ink = pal['accent'] if (white_bg or mono) else '#ffffff'
+        op = 0.95 if (white_bg or mono) else 0.9
+        kind = spec.get('subject') or subject_of(str(spec.get('seed', '')))
+        stack = [kind] + [k for k in ('net', 'chip', 'shield', 'cloud', 'data')
+                          if k != kind][:4]
+
+        px = W * 0.155                    # 기둥 가운데 x
+        pw = W * 0.105                    # 기둥 너비
+        n = len(stack)
+        gap = W * 0.096                   # 아이콘 사이
+        ph = gap * n + W * 0.030
+        pyc = H * 0.50
+        c.add('<rect x="%g" y="%g" width="%g" height="%g" rx="%g" '
+              'fill="none" stroke="%s" stroke-width="%g" opacity="%g"/>'
+              % (px - pw / 2, pyc - ph / 2, pw, ph, pw / 2,
+                 ink, W * 0.0030, op * 0.45))
+        for i, k in enumerate(stack):
+            iy = pyc - ph / 2 + W * 0.015 + gap * (i + 0.5)
+            draw_subject(c, k, px, iy, W * 0.030, ink, op, W * 0.0028)
+
     else:  # grid
         step = W * 0.052
         for i in range(-6, 40):
@@ -555,9 +839,32 @@ def draw_cover(spec: dict, pal: dict) -> Canvas:
                   'stroke-width="0.7" opacity="%g"/>'
                   % (x, qy, x + (H - qy) * 0.58, H, line, soft * 0.9))
 
-    # 글자 자리와 무늬를 가르는 가는 선
-    c.add('<line x1="0" y1="%g" x2="%g" y2="%g" stroke="%s" stroke-width="1" '
-          'opacity="%g"/>' % (qy, W, qy, line, soft * 2.2))
+    # ── 주제 그림 ───────────────────────────────────────
+    # `subject` 무늬는 제 자리에 이미 그렸다. 나머지 무늬는 바탕일 뿐이므로
+    # 그 위에 **문서의 주제**를 하나 얹는다. 무늬는 테마마다 달라도 표지가
+    # 무엇을 다루는 문서인지는 어느 테마에서나 보여야 한다.
+    # `pill` 은 기둥 안에 이미 아이콘을 쌓았으므로 따로 얹지 않는다.
+    if (motif not in ('subject', 'robot', 'auto', 'pill')
+            and spec.get('subject', '') != 'none'):
+        kind = spec.get('subject') or subject_of(str(spec.get('seed', '')))
+        # 그림은 **글자 자리와 발행 정보 사이의 띠** 안에 들어가야 한다.
+        # 위로는 `quiet` 아래, 아래로는 날짜·기관·로고 위다. 그 띠가 좁은
+        # 테마(제목이 긴 타이포형 따위)에서는 그림을 줄여 맞춘다. 자리를
+        # 고정하면 제목이나 날짜를 덮는다.
+        gfoot = H * 0.74
+        band = max(gfoot - qy, H * 0.05)
+        gs = min(W * 0.098, max(W * 0.044, band * 0.30))
+        gx, gy = W * 0.50, qy + band * 0.5
+        gink = pal['accent'] if (mono or white_bg) else '#ffffff'
+        c.add('<circle cx="%g" cy="%g" r="%g" fill="%s" opacity="%g"/>'
+              % (gx, gy, gs * 1.52, gink, 0.07 if not white_bg else 0.05))
+        draw_subject(c, kind, gx, gy, gs, gink,
+                     0.80 if not white_bg else 0.86, max(gs * 0.052, 0.9))
+
+    # 글자 자리와 무늬를 가르는 가는 선. 뒤표지에는 가를 글자가 없다.
+    if motif != 'pill':
+        c.add('<line x1="0" y1="%g" x2="%g" y2="%g" stroke="%s" '
+              'stroke-width="1" opacity="%g"/>' % (qy, W, qy, line, soft * 2.2))
     return c
 
 

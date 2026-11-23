@@ -43,6 +43,11 @@ THEME = dict(
     ink='#111318', accent='#062d56', accent2='#0099d2',
     tint='#e9f0f8', rule='#9fadbd', soft='#5c6773',
     badge='square', chapter='page', cover='side',
+    cover_art=True,
+    chapter_art=False,  # 간지를 전면 쪽으로 쓰지 않는다     # 표지에 주제 그림을 깐다 (짜임은 cv-side 그대로)
+    motif='grid',       # 바탕 무늬 — 규격서답게 격자
+    cover_bg='white',
+    quiet=0.36,
     mark='●',
 )
 
@@ -225,7 +230,9 @@ pre{margin-left:calc(-1 * var(--gut));background:var(--tint);
    왼쪽에 색 바를 세우고(이름 붙은 cover 쪽이라 종이 끝까지 닿는다) 제목을
    왼쪽으로 맞춘다. 아래는 괘선으로 끊은 발행 정보 블록. */
 .cover.cv-side{justify-content:space-between;text-align:left;padding:0;
- border-left:9mm solid var(--accent);background:#fff}
+ border-left:9mm solid var(--accent);background:none}
+/* 바탕을 투명하게 둔다. 표지 그림은 인쇄한 뒤에 깔리므로 흰 바탕을
+   두면 그림이 가려진다(`cover_art=True`). */
 .cv-side .cvtop{padding:44mm 16mm 0 15mm}
 .cv-side .cvbot{padding:0 16mm 20mm 15mm;margin:0;
  border-top:.6mm solid var(--ink)}

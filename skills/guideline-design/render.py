@@ -253,16 +253,21 @@ def front_matter(title: str, meta: dict, kind_css: str, art: str, logo: str,
 
 
 def colophon(title: str, meta: dict) -> str:
-    """판권지. 책 마지막 쪽에 제목과 발행 정보를 둔다."""
-    rows = [(k, meta[k]) for k in
-            ('문서 종류', '발행기관', '발간등록번호', '원고 버전', '작성 기준일', '문의처')
-            if meta.get(k)]
-    cells = ''.join('<tr><th>%s</th><td>%s</td></tr>' % (esc(k), inline(v))
-                    for k, v in rows)
+    """뒤표지. 발행본을 재어 보니 마지막 쪽에 표를 두지 않는다.
+
+    ｢국가·공공기관 AI보안 가이드북｣ 과 ｢국가 망 보안체계 보안 가이드라인｣
+    모두 마지막 쪽은 **문서 종류와 제목, 기관 표시만** 둔 조용한 쪽이다.
+    인쇄·발행처·주소 같은 서지 사항은 앞쪽 발간 정보에 이미 있다.
+    """
+    kind = meta.get('문서 종류', '')
+    org = meta.get('발행기관', '')
     return ('<section class="colophon">'
-            '<p class="colt">%s</p>'
-            '<table class="colt-t"><tbody>%s</tbody></table>'
-            '</section>' % (inline(title), cells))
+            '<div class="colart"></div>'
+            '<div class="colbox">'
+            + ('<p class="colkind">%s</p>' % inline(kind) if kind else '')
+            + '<p class="colt">%s</p>' % inline(title)
+            + ('<p class="colorg">%s</p>' % inline(org) if org else '')
+            + '</div></section>')
 
 
 def logos(base: str) -> str:
@@ -321,6 +326,27 @@ def convert(md: str, base: str, mark: str, pages: dict = None) -> str:
     toc = False
     pending_cap = None
 
+    def sections_of(start: int) -> str:
+        """`start` 다음 장이 나오기 전까지의 절 제목을 목록으로 돌려준다.
+
+        발행본의 장 간지는 그 장의 절을 미리 보여 준다. 원고의 제목을
+        그대로 쓰므로 본문과 어긋날 일이 없다.
+        """
+        items = []
+        for k in range(start + 1, n):
+            ln = lines[k].strip()
+            if ln.startswith('# '):
+                break
+            mm2 = re.match(r'^##\s+(제(\d+)절|부록\s*(\d+))\s+(.+)$', ln)
+            if mm2:
+                items.append((mm2.group(1).replace(' ', ' '), mm2.group(4).strip()))
+        if len(items) < 2:
+            return ''
+        li = ''.join('<li><span class="sno">%s</span>'
+                     '<span class="stt">%s</span></li>'
+                     % (esc(a), inline(b)) for a, b in items)
+        return '<ul class="chsec">%s</ul>' % li
+
     def close_lists():
         nonlocal ul_open
         while ul_open:
@@ -352,7 +378,8 @@ def convert(md: str, base: str, mark: str, pages: dict = None) -> str:
             close_lists()
             lv, txt = len(m.group(1)), m.group(2).strip()
             if lv == 1 and txt == '부록':
-                out.append('<section class="chapter"><h1>부록</h1></section>')
+                out.append('<section class="chapter"><h1>부록</h1>%s</section>'
+                           % sections_of(i))
                 i += 1
                 continue
             mm = re.match(r'^부록\s*(\d+)\s+(.+)$', txt)
@@ -365,7 +392,8 @@ def convert(md: str, base: str, mark: str, pages: dict = None) -> str:
             mm = re.match(r'^제(\d+)장\s+(.+)$', txt)
             if lv == 1 and mm:
                 out.append('<section class="chapter"><p class="chno">제%s장</p>'
-                           '<h1>%s</h1></section>' % (mm.group(1), inline(mm.group(2))))
+                           '<h1>%s</h1>%s</section>'
+                           % (mm.group(1), inline(mm.group(2)), sections_of(i)))
                 i += 1
                 continue
             mm = re.match(r'^제(\d+)절\s+(.+)$', txt)
@@ -495,6 +523,15 @@ code{font-family:var(--mono);font-size:.92em}
  border-bottom:1px solid var(--rule)}
 .chno{margin:0 0 .35em;color:var(--accent);font-weight:700;letter-spacing:.12em;font-size:.92em}
 .chapter h1{font-size:1.75em;font-weight:800;letter-spacing:-.02em}
+
+/* 장 간지의 절 목록. 발행본의 장 간지는 그 장에 무엇이 들어 있는지
+   먼저 보여 준다. 테마가 모양을 바꿀 수 있도록 뼈대만 둔다. */
+.chsec{list-style:none;margin:7mm 0 0;padding:0}
+.chsec li{display:flex;align-items:baseline;gap:3mm;margin:0 0 2.2mm;
+ font-size:.92em;line-height:1.5}
+.chsec .sno{flex:0 0 auto;color:var(--accent);font-weight:700;
+ font-size:.88em;letter-spacing:.04em}
+.chsec .stt{flex:1 1 auto}
 h2{display:flex;align-items:center;gap:.5em;margin:1.9em 0 .9em;font-size:1.3em;font-weight:800}
 h2 .bdg{background:var(--accent);color:#fff;border-radius:%(radius)s;padding:.12em .7em;
  font-size:.72em;font-weight:700;letter-spacing:.02em;white-space:nowrap}
@@ -570,14 +607,16 @@ h4{font-size:1em;font-weight:700;margin:1.3em 0 .45em;color:var(--accent)}
 .halftitle h1{font-size:1.5em;font-weight:800;line-height:1.4;letter-spacing:-.02em}
 .docinfo{break-before:page;break-after:page}
 .tocpage{break-before:page;break-after:page}
-.colophon{break-before:page;display:flex;flex-direction:column;justify-content:flex-end;
- min-height:%(coverh)smm}
-.colt{font-size:1.15em;font-weight:800;line-height:1.45;margin:0 0 1.1em;
- padding-bottom:.7em;border-bottom:3px solid var(--accent)}
-.colt-t{width:100%%;border-collapse:collapse;font-size:.92em}
-.colt-t th{width:30mm;text-align:left;font-weight:700;border:0;padding:.35em .4em .35em 0;
- background:none;color:var(--soft)}
-.colt-t td{border:0;padding:.35em 0}
+/* 뒤표지 — 발행본은 마지막 쪽을 조용히 둔다. 문서 종류와 제목, 기관
+   표시만 두고 서지 사항은 앞쪽 발간 정보에 맡긴다. */
+.colophon{break-before:page;display:flex;flex-direction:column;
+ justify-content:center;min-height:%(coverh)smm}
+.colart{display:none}
+.colbox{max-width:110mm}
+.colkind{margin:0 0 .5em;color:var(--soft);font-size:.82em;font-weight:700;
+ letter-spacing:.2em}
+.colt{font-size:1.3em;font-weight:800;line-height:1.42;margin:0}
+.colorg{margin:.9em 0 0;color:var(--accent);font-size:.98em;font-weight:700}
 h2.apx{break-before:page}
 .toch{margin-bottom:.7em}
 .toc{margin:0 0 .25em;padding-left:1.4em;color:var(--soft);font-size:.95em;
@@ -644,6 +683,19 @@ def extra_css(t: dict) -> str:
                  ('body', t['body']), ('coverp', h - mt - mb - 4),
                  ('coverh', h - mt - mb - 20), ('coverb', h - mb - 4)):
         s = s.replace('{{%s}}' % k, str(v))
+    # 치환되지 않고 남은 토큰은 CSS 에서 값이 아니라 글자로 남아 규칙
+    # 하나를 통째로 죽인다. `background:{{accent}};color:#fff` 는 흰 글자를
+    # 흰 바탕에 찍어 아무것도 보이지 않게 만든다. 조용히 넘기지 않는다.
+    left = sorted(set(re.findall(r'\{\{(\w+)\}\}', s)))
+    if left:
+        raise SystemExit(
+            '테마 %s 의 EXTRA_CSS 에 치환되지 않은 토큰이 있습니다: %s%s'
+            '치수는 {{w}} {{h}} {{ml}} {{mr}} {{mt}} {{mb}} {{body}} '
+            '{{coverp}} {{coverh}} {{coverb}} 를 쓰고,%s'
+            '색은 토큰이 아니라 var(--accent) var(--accent2) var(--tint) '
+            'var(--ink) var(--rule) var(--soft) 를 쓰세요.'
+            % (t.get('key', '?'), ', '.join('{{%s}}' % x for x in left),
+               chr(10), chr(10)))
     return chr(10) + s
 
 

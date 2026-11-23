@@ -15,6 +15,11 @@
 못한다 — 쪽 조각화로 상자가 232.8mm 에서 잘린다.
 
 로고는 원고 폴더의 `logos/` 에 기관이 넣은 파일을 쓴다. 없으면 그리지 않는다.
+
+
+`text-shadow` 는 쓰지 않는다. Chrome 인쇄에서 글자가 PDF 글자층에
+**두 번 찍혀** 본문을 뽑으면 "개요개요" 처럼 겹친다. 검색과 추출이
+망가지므로 그림자 대신 어두운 그림 위에 흰 글자를 그냥 올린다.
 """
 
 THEME = dict(
@@ -39,7 +44,7 @@ EXTRA_CSS = """
 .chapter .chno{color:#fff;opacity:.9;letter-spacing:.34em;font-size:1em;
  margin:0 0 .5em;font-weight:700}
 .chapter h1{color:#fff;font-size:2.5em;font-weight:800;letter-spacing:-.03em;
- line-height:1.25;text-shadow:0 1px 10px rgba(0,0,0,.24)}
+ line-height:1.25}
 
 /* 화면에서는 그림이 없으므로 간지가 허옇게 보인다. 주조색을 깔아 둔다. */
 @media screen{

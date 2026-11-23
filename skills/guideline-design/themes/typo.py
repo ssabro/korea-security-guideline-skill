@@ -62,6 +62,11 @@ THEME = dict(
     badge='square',
     chapter='page',
     cover='rule',
+    cover_art=True,       # 표지에 주제 그림을 깐다 (짜임은 cv-rule 그대로)
+    chapter_art=False,    # 간지를 전면 쪽으로 쓰지 않는다 — 굵은 괘선으로 끊는다
+    motif='network',      # 바탕 무늬
+    cover_bg='white',
+    quiet=0.64,          # 제목이 96mm 에서 시작해 아래로 길다
     mark='●',
 )
 
