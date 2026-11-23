@@ -317,6 +317,24 @@ def ymd(s: str):
     return (y, m, d) if 1900 < y < 2200 and 1 <= m <= 12 and 1 <= d <= 31 else None
 
 
+# ── 교차참조 ─────────────────────────────────────────────────────────────
+
+# 원고가 자기 안의 자리를 가리키는 꼴
+RX_REF_SEC = re.compile(
+    r"제\s?(\d+)\s?장\s+제\s?(\d+)\s?절(?:\s+(\d+)\s?\.)?"
+    r"|(?<![가-힣])제\s?(\d+)\s?절\s+(\d+)\s?\.")
+RX_REF_APPX = re.compile(r"부록\s?(\d+)")
+RX_REF_CAP = re.compile(r"\[(표|그림)\s?(\d+)-(\d+)\]")
+
+# 제목 — `# 제N장`, `## 제M절`, `### K.`
+RX_H_CHAP = re.compile(r"^#\s+제\s?(\d+)\s?장")
+RX_H_SECT = re.compile(r"^##\s+제\s?(\d+)\s?절")
+RX_H_SUB = re.compile(r"^###\s+(\d+)\s?\.")
+RX_H_APPX = re.compile(r"^##\s+부록\s?(\d+)")
+# 캡션은 줄 머리에서 시작하고 닫는 괄호 뒤에 공백이 온다. 본문 속의 참조
+# `[그림 3-1]의 ④단계` 와 가른다.
+RX_CAPTION = re.compile(r"^\[(표|그림)\s?(\d+)-(\d+)\]\s+\S")
+
 TERM_PAIRS = [
     ("사용자", ["이용자"]),
     ("기관", ["조직"]),
@@ -1380,6 +1398,128 @@ def check_figure_files(doc: Doc) -> None:
                 "그리거나 경로를 고치세요.")
 
 
+def outline(doc: Doc) -> tuple[set, set, dict]:
+    """원고의 뼈대 — 있는 (장, 절), (장, 절, 소절), 부록 번호."""
+    secs: set = set()
+    subs: set = set()
+    appx: set = set()
+    chap = sec = 0
+    for l in doc.lines:
+        m = RX_H_CHAP.match(l)
+        if m:
+            chap, sec = int(m.group(1)), 0
+            continue
+        if RX_H_APPX.match(l):
+            appx.add(int(RX_H_APPX.match(l).group(1)))
+            chap = sec = 0
+            continue
+        m = RX_H_SECT.match(l)
+        if m:
+            sec = int(m.group(1))
+            if chap:
+                secs.add((chap, sec))
+            continue
+        m = RX_H_SUB.match(l)
+        if m and chap and sec:
+            subs.add((chap, sec, int(m.group(1))))
+    return secs, subs, appx
+
+
+def check_xref(doc: Doc) -> None:
+    """원고가 가리키는 절·소절·부록·캡션이 실제로 있는지.
+
+    절을 끼워 넣으면 뒤 소절의 번호가 밀린다. `제1장 제3절 7.` 이 가리키던
+    곳이 8. 이 되어도 참조는 7. 로 남는다. **발행본에서 독자가 찾아가는
+    자리**이므로 오류로 본다.
+
+    `제N장` 이 붙지 않은 `제M절 K.` 는 그 줄이 속한 장에서 찾는다.
+    """
+    secs, subs, appx = outline(doc)
+    if not secs and not appx:
+        return
+    # 코드 블록 안의 보기는 캡션이 아니다 — `body_lines()` 가 걸러 준다.
+    caps = {(m.group(1), int(m.group(2)), int(m.group(3)))
+            for m in (RX_CAPTION.match(l) for _, l in body_lines(doc)) if m}
+    bad: dict[str, int] = {}
+    chap = 0
+    for n, raw in body_lines(doc):
+        m = RX_H_CHAP.match(raw)
+        if m:
+            chap = int(m.group(1))
+        if RX_H_APPX.match(raw):
+            chap = 0
+        if head_level(raw):
+            continue
+        l = unquoted(raw)
+        # 한 줄에서 장을 한 번만 적고 이어 쓴다 — `제4장 제1절 6., 제1절 7.`.
+        # 앞에서 명시한 장을 이어 받고, 없으면 이 줄이 속한 장으로 본다.
+        here = chap
+        for m in RX_REF_SEC.finditer(l):
+            if m.group(1):
+                c, s, k = int(m.group(1)), int(m.group(2)), m.group(3)
+                here = c
+            else:
+                if not here:
+                    continue
+                c, s, k = here, int(m.group(4)), m.group(5)
+            if (c, s) not in secs:
+                bad.setdefault('제%d장 제%d절' % (c, s), n)
+            elif k and (c, s, int(k)) not in subs:
+                bad.setdefault('제%d장 제%d절 %s.' % (c, s, k), n)
+        for m in RX_REF_APPX.finditer(l):
+            if appx and int(m.group(1)) not in appx:
+                bad.setdefault('부록 %s' % m.group(1), n)
+        for m in RX_REF_CAP.finditer(l):
+            key = (m.group(1), int(m.group(2)), int(m.group(3)))
+            if caps and key not in caps:
+                bad.setdefault('[%s %d-%d]' % key, n)
+    if not bad:
+        return
+    shown = ", ".join(sorted(bad)[:SAMPLE_LIMIT])
+    doc.add_agg("XREF", "error", list(bad.values()),
+                f"가리키는 곳이 없는 참조가 있습니다 — {len(bad)}종 ({shown})",
+                "절을 끼워 넣거나 표를 더하면 뒤 번호가 밀립니다. 발행본에서 "
+                "독자가 찾아가는 자리이므로 번호를 함께 고치세요.")
+
+
+def check_caption_seq(doc: Doc) -> None:
+    """캡션 번호가 지면 순서대로 붙었는지.
+
+    표를 중간에 끼워 넣으면 `[표 1-10]` 이 두 개가 되거나 번호가 거꾸로
+    간다. 조판기는 캡션을 글자 그대로 찍으므로 발행본에 그대로 나간다.
+    """
+    seen: dict[tuple, list[int]] = {}
+    order: dict[int, list[tuple[int, int]]] = {}
+    for n, l in body_lines(doc):
+        m = RX_CAPTION.match(l)
+        if not m:
+            continue
+        kind, a, b = m.group(1), int(m.group(2)), int(m.group(3))
+        seen.setdefault((kind, a, b), []).append(n)
+        order.setdefault((kind, a), []).append((b, n))
+    dup = {k: v for k, v in seen.items() if len(v) > 1}
+    if dup:
+        shown = ", ".join('[%s %d-%d]' % k for k in sorted(dup)[:SAMPLE_LIMIT])
+        doc.add_agg("CAPTION-DUP", "error",
+                    [v[1] for v in dup.values()],
+                    f"같은 캡션 번호가 두 번 쓰였습니다 — {len(dup)}종 ({shown})",
+                    "표나 그림을 중간에 끼워 넣을 때 뒤 번호를 함께 당기세요. "
+                    "큰 번호부터 바꿔야 중간에 겹치지 않습니다.")
+    gap: list[int] = []
+    for (kind, a), items in order.items():
+        want = 1
+        for b, n in items:
+            if b != want:
+                gap.append(n)
+                want = b
+            want += 1
+    if gap:
+        doc.add_agg("CAPTION-SEQ", "warn", gap,
+                    f"캡션 번호가 지면 순서대로 붙지 않았습니다 ({len(gap)}곳)",
+                    "같은 장의 표·그림은 나오는 순서대로 1부터 번호를 붙입니다. "
+                    "끼워 넣거나 지울 때 밀린 것입니다.")
+
+
 CHECKS = {
     "ENDING-MIX": check_ending_mix,
     "HONORIFIC": check_honorific,
@@ -1408,6 +1548,8 @@ CHECKS = {
     "HISTORY-ORDER": check_history,
     "DATE-MISMATCH": check_date_sync,
     "FIGURE-FILE": check_figure_files,
+    "XREF": check_xref,
+    "CAPTION-SEQ": check_caption_seq,
 }
 
 # 한 검사가 여러 코드를 낼 수 있으므로 --only 용 별칭을 둔다
@@ -1426,6 +1568,7 @@ ALIAS = {
     "COUNT-LIST": "STYLE",
     "EM-DASH": "STYLE",
     "HISTORY-NOOP": "HISTORY-ORDER",
+    "CAPTION-DUP": "CAPTION-SEQ",
     "PARTICLE-SPACE": "NOTATION",
     "HEADING-SKIP": "HEADINGS",
     "HEADING-DEPTH": "HEADINGS",
