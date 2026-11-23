@@ -134,7 +134,11 @@ def unquoted(line: str) -> str:
     """
     return RX_QUOTED.sub(" ", RX_INLINE_CODE.sub(" ", line))
 
-RX_LOCATION_REF = re.compile(r"(?:아래|위|다음|상기|하기)\s*(?:의\s*)?(?:표|그림|도표|그래프)")
+# 항·호를 위치로 가리키는 것도 같다 — `아래 2. 참조`. 코퍼스 24종에
+# 이 꼴은 **한 번도 없다**(절·항을 뭉뚱그려 가리키는 `아래 절` 은
+# 15종에 117회 나오므로 보지 않는다).
+RX_LOCATION_REF = re.compile(
+    r"(?:아래|위|다음|상기|하기)\s*(?:의\s*)?(?:표|그림|도표|그래프|\d+\s*(?:\.|항|호))")
 # 조사는 앞말에 붙여 쓴다(한글 맞춤법). 영문·숫자·닫는 괄호·인라인 코드
 # 뒤에서 자주 깨진다 — `PDF 까지`, `A4 는`. 조사 뒤에 다른 글자가 이어지면
 # 조사가 아니므로(`SVG 로드`, `API 가능`) 경계를 본다.
@@ -316,6 +320,31 @@ def ymd(s: str):
     y, m, d = (int(x) for x in nums[:3])
     return (y, m, d) if 1900 < y < 2200 and 1 <= m <= 12 and 1 <= d <= 31 else None
 
+
+# ── 숫자 뒤 조사 ─────────────────────────────────────────────────────────
+# 끝 자리 숫자를 **읽는 소리**가 조사를 정한다.
+#   0 영 · 1 일 · 3 삼 · 6 육 · 7 칠 · 8 팔  → 받침 있음 → 은·이·을·과·으로
+#   2 이 · 4 사 · 5 오 · 9 구               → 받침 없음 → 는·가·를·와·로
+# 코퍼스 24종에서 249곳을 재어 **227곳이 규칙대로**였다(91.2%). 틀린 22곳은
+# `[표 8]는` 처럼 실제 오류이거나 변환 과정의 잡음이다. 발행본도 열에 한 번
+# 틀리므로 참고로만 알린다.
+NUM_CODA = {'0': 1, '1': 1, '2': 0, '3': 1, '4': 0, '5': 0,
+            '6': 1, '7': 1, '8': 1, '9': 0}
+# `로/으로` 만 예외다. **받침이 ㄹ이면 `로`** 를 쓴다(서울로, 1일로). 숫자
+# 1(일)·7(칠)·8(팔) 이 ㄹ받침이라 `으로` 가 아니라 `로` 다. 이걸 빼먹고
+# `1:1로` 를 `1:1으로` 로 고치라고 한 적이 있다.
+NUM_RIEUL = {'1', '7', '8'}
+# (받침 있을 때, 받침 없을 때)
+PARTICLE_PAIRS = [('은', '는'), ('이', '가'), ('을', '를'), ('과', '와')]
+# 숫자나 `숫자]` 에 **붙여 쓴** 조사만 본다. 띄어 쓴 것은 다른 말일 수 있다
+# (`4 이상`, `3 와트`).
+RX_NUM_PARTICLE = re.compile(
+    r"(\d)(\]?)(은|는|이|가|을|를|과|와|으로|로)(?![가-힣])")
+# 괄호가 **통제 ID 를 감쌀 때만** 본다. `권장한다`(45)와 의 `와` 는 숫자가
+# 아니라 앞말에 붙으므로, 붙임표가 있는 ID 꼴로 한정한다.
+RX_ID_PARTICLE = re.compile(
+    r"\([A-Z][A-Z0-9]*-[^)]*?(\d)\)()"
+    r"(은|는|이|가|을|를|과|와|으로|로)(?![가-힣])")
 
 # ── 교차참조 ─────────────────────────────────────────────────────────────
 
@@ -831,9 +860,9 @@ def check_notation(doc: Doc) -> None:
     doc.add_agg("LOCATION-REF", "warn",
                 [n for n, l in body_lines(doc)
                  if RX_LOCATION_REF.search(unquoted(l))],
-                "표·그림을 위치로 가리켰습니다",
-                "번호로 가리키세요 — '[표 3-1]과 같이'. 조판이 바뀌면 '아래 표'는 "
-                "틀린 말이 됩니다.")
+                "표·그림·항을 위치로 가리켰습니다",
+                "번호로 가리키세요 — '[표 3-1]과 같이', '제1장 제3절 4.'. "
+                "조판이 바뀌면 '아래 표'와 '아래 2.'는 틀린 말이 됩니다.")
 
 
 def check_headings(doc: Doc) -> None:
@@ -1520,6 +1549,52 @@ def check_caption_seq(doc: Doc) -> None:
                     "끼워 넣거나 지울 때 밀린 것입니다.")
 
 
+def check_num_particle(doc: Doc) -> None:
+    """숫자 뒤 조사가 읽는 소리에 맞는지.
+
+    `[표 1-9]은` 이 발행 전 검토에서 지적됐다. `9` 는 '구' 로 읽어 받침이
+    없으므로 `는` 이다. 표와 그림을 백 번 넘게 가리키는 문서에서 사람이
+    매번 맞추기 어렵다.
+    """
+    bad: dict[str, int] = {}
+    for n, raw in body_lines(doc):
+        line = unquoted(raw)
+        for m in list(RX_NUM_PARTICLE.finditer(line)) + \
+                 list(RX_ID_PARTICLE.finditer(line)):
+            digit, close, part = m.group(1), m.group(2), m.group(3)
+            coda = NUM_CODA[digit]
+            # `로/으로` 는 ㄹ받침 예외가 있어 따로 본다
+            if part in ('로', '으로'):
+                want = '로' if (not coda or digit in NUM_RIEUL) else '으로'
+                if part != want:
+                    bad.setdefault('%s%s%s → %s%s%s'
+                                   % (digit, close, part,
+                                      digit, close, want), n)
+                continue
+            for with_coda, without in PARTICLE_PAIRS:
+                if part == with_coda and not coda:
+                    bad.setdefault('%s%s%s → %s%s%s'
+                                   % (digit, close, part,
+                                      digit, close, without), n)
+                elif part == without and coda:
+                    bad.setdefault('%s%s%s → %s%s%s'
+                                   % (digit, close, part,
+                                      digit, close, with_coda), n)
+                else:
+                    continue
+                break
+    if not bad:
+        return
+    shown = ", ".join('`%s`' % s for s in sorted(bad)[:SAMPLE_LIMIT])
+    doc.add_agg("PARTICLE-NUM", "info", list(bad.values()),
+                f"숫자 뒤 조사가 읽는 소리와 맞지 않습니다 — "
+                f"{len(bad)}종 ({shown})",
+                "끝 자리를 읽은 소리로 고릅니다 — 1(일)·3(삼)·6(육)·7(칠)·"
+                "8(팔)·0(영)은 받침이 있어 `은·이·을·과`, "
+                "2(이)·4(사)·5(오)·9(구)는 받침이 없어 `는·가·를·와`. "
+                "`로/으로`는 ㄹ받침이 예외라 1·7·8도 `로`를 씁니다.")
+
+
 CHECKS = {
     "ENDING-MIX": check_ending_mix,
     "HONORIFIC": check_honorific,
@@ -1550,6 +1625,7 @@ CHECKS = {
     "FIGURE-FILE": check_figure_files,
     "XREF": check_xref,
     "CAPTION-SEQ": check_caption_seq,
+    "PARTICLE-NUM": check_num_particle,
 }
 
 # 한 검사가 여러 코드를 낼 수 있으므로 --only 용 별칭을 둔다
