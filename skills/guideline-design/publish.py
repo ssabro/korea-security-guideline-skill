@@ -72,6 +72,10 @@ def print_pdf(chrome: str, html: str, pdf: str, budget: int = 25000) -> bool:
     return os.path.exists(pdf)
 
 
+# 발행본 24종의 앞붙이(표지·발간 정보·목차)는 최대 여덟 쪽이었다.
+FRONT_MAX = 8
+
+
 def main(argv: list) -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument('source', help='원고 .md')
@@ -150,6 +154,23 @@ def main(argv: list) -> int:
     step(3, total, '책 구성')
     front, added, pages = book.apply(p1, b1, marks)
     print('  앞붙이 %d쪽 · 본문 %d쪽부터 · 빈 쪽 %d장' % (front, front + 1, added))
+
+    # 앞붙이가 터무니없으면 멈춘다. 발행본 24종의 앞붙이는 표지·발간 정보·
+    # 목차를 합쳐 **여덟 쪽을 넘지 않는다.** 그보다 크면 본문 시작을 잘못
+    # 짚은 것이고, 그대로 두면 쪽번호와 목차 쪽번호가 전부 밀린다.
+    #
+    # 실제로 장 간지에 절 목록을 싣자 간지의 글자 수가 70자에서 300자로
+    # 늘어 book.py 가 장 번호를 놓쳤고, 앞붙이가 8쪽에서 24쪽·92쪽이
+    # 되었다. 출력 한 줄을 눈으로 보고서야 알았다. 사람이 보지 않아도
+    # 걸리게 한다.
+    if not 1 <= front <= FRONT_MAX:
+        print('  ! 앞붙이가 %d쪽입니다. 발행본은 여덟 쪽을 넘지 않습니다.'
+              % front)
+        print('    본문 시작을 잘못 짚었습니다 — 장 간지에서 장 번호를 찾지')
+        print('    못한 것입니다. --keep 으로 중간 산출물을 남겨 1차 인쇄본을')
+        print('    확인하고, 간지의 글자가 다르면 book.py 의 --marks 로')
+        print('    지정하세요.')
+        return 2
 
     step(4, total, '목차 쪽번호')
     doc = fitz.open(b1)

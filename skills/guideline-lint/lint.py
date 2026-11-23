@@ -98,6 +98,10 @@ ID_IGNORE_PREFIX = {
 RX_IDLIKE = re.compile(
     r"\b[A-Z][A-Z0-9]{1,7}-[A-Za-z]{1,4}-[A-Za-z]?\d{1,3}(?:\(\d{1,2}\))?"
     r"|\b[A-Z]{2,6}-\d{1,4}(?:-\d{1,4})*"
+    # 대문자를 붙임표로 이은 겹낱말은 **이름**이다 — 검사 코드 `TERM-MIX`,
+    # 도메인 묶음 `ACCESS-CONTROL`. 그 조각(`MIX`)을 약어로 세면 '풀네임을
+    # 병기하라' 는 고칠 수 없는 지적이 나온다.
+    r"|\b[A-Z]{2,}(?:-[A-Z]{2,})+\b"
 )
 
 CYCLE_NEAR = re.compile(
@@ -199,6 +203,88 @@ RX_CAPTION_SQ = re.compile(r"\[(?:표|그림)\s?[\d\-–.]+\]")
 RX_CAPTION_AN = re.compile(r"<(?:표|그림)\s?[\d\-–.]+>")
 
 # 용어 혼용 — analysis/07-terminology.md
+# ── 발간 전 검사에 쓰는 패턴 ──────────────────────────────────────────────
+
+# 자리표시자. **코퍼스 24종에서 한 번도 나오지 않은 꼴만** 늘 지적한다.
+PLACEHOLDER_ALWAYS = [
+    (r"\(\s*(?:발행)?기관명\s*\)", "(기관명)"),
+    (r"\(\s*(?:발간)?등록번호\s*\)", "(등록번호)"),
+    (r"\bTBD\b", "TBD"),
+    (r"\bTODO\b", "TODO"),
+    (r"\bFIXME\b", "FIXME"),
+    (r"\(\s*미정\s*\)", "(미정)"),
+    (r"0000-00-00", "0000-00-00"),
+    (r"\b000-0000\b", "000-0000"),
+    (r"\bXX\b", "XX"),
+    (r"□□", "□□"),
+    (r"작성\s*예정", "작성 예정"),
+    (r"\[(?:TODO|확인|보완|추가)\]", "[확인]"),
+]
+# ○○ · ×× · OOO · ____ 는 발행본도 쓴다 — 다만 **[예시] 와 양식 안에서만**
+# 이다(24종 중 ○○ 1종 4회, OOO 3종 23회, ____ 3종 58회. 모두 질의서·
+# 서식·예시 블록). 그래서 **실제 값이 들어가야 하는 앞붙이에서만** 본다.
+PLACEHOLDER_FRONT = [
+    (r"○○", "○○"),
+    (r"××", "××"),
+    (r"\bOOO\b", "OOO"),
+    (r"_{4,}", "____"),
+]
+# 쓰지 않는 말 — `추후`(2종 8회) `확인 필요`(3종 6회) `(초안)`(2종 3회)
+# `Draft`(7종 20회) `기입`(1종) 은 발행본이 실제로 쓴다. 자리표시자가 아니다.
+
+RX_PLACEHOLDER_ALWAYS = [(re.compile(p), s) for p, s in PLACEHOLDER_ALWAYS]
+RX_PLACEHOLDER_FRONT = [(re.compile(p), s) for p, s in PLACEHOLDER_FRONT]
+
+# 앞붙이 — 실제 값이 들어가야 하는 구역
+RX_HEAD_FRONT = re.compile(
+    r"^#{1,3}\s*(?:발간\s*정보|문서\s*정보|문서\s*이력|개정\s*이력|판권)")
+# 문서이력 — 이 문서가 무엇을 고쳤는지 적는 곳이라 수와 자료명이 섞인다
+RX_HEAD_HIST = re.compile(r"^#{1,6}.*?(?:문서\s*이력|개정\s*이력|변경\s*이력)")
+# 집필용 메모가 남기 쉬운 구역
+RX_HEAD_NOTE = re.compile(
+    r"^#{1,3}\s*(?:목\s*차|발간\s*정보|문서\s*정보|차\s*례)")
+# 참고 자료 목록
+RX_HEAD_REF = re.compile(
+    r"^#{1,6}.*?(?:참고\s*문헌|참고\s*자료|인용\s*자료|근거\s*자료)")
+
+# 문서명·자료명 인용. `outside_quote` 와 같은 꼴을 쓴다.
+RX_DOCNAME = re.compile(r"[｢「]([^｣」]{2,60})[｣」]")
+
+# 외부 자료의 수를 단정하는 말 — `112 개 항목`, `점검항목 98개`, `41개 전부`.
+# `2건` `3종` 같은 맨 수는 보지 않는다 — 문서이력의 `인용 오류 2건 정정` 이
+# 외부 자료의 항목 수로 잡혔다. **세는 대상이 함께 적혀 있어야** 단정이다.
+RX_ASSERT_COUNT = re.compile(
+    r"\d{1,4}\s*개\s*(?:항목|통제|요구사항|점검항목|조문|분류|전부)"
+    r"|(?:항목|통제|요구사항|점검항목|조문|분류)\s*\d{1,4}\s*개"
+    r"|\d{1,4}\s*개(?:를|의|이|가|는|와|과)?\s*(?:모두|전부|가운데|중)")
+
+# 법령은 참고 문헌이 아니라 **근거 법령** 절에 적는다. 참고 자료 목록에
+# 없다고 지적하면 모든 법령 인용이 걸린다.
+RX_LAW_NAME = re.compile(
+    r"(?:법|법률|시행령|시행규칙|규정|규칙|고시|훈령|예규|조례|지침)$")
+
+# 접두사를 생략해 줄여 쓴 ID — `TID-105, 110, 118`, `SSDF-03·04·05`
+RX_ID_ABBREV = re.compile(
+    r"\b[A-Z][A-Z0-9]{1,7}-\d{1,3}(?:[·,]\s*\d{1,3}){2,}")
+
+# 사례 서술의 근거. `출처:` 줄이거나 `(저자, 연도)` 꼴이면 근거가 있다.
+RX_EVIDENCE = re.compile(r"출처|\([^)]{2,40},\s*\d{4}\)|[｢「][^｣」]{2,60}[｣」]")
+# 사례임을 알리는 수치 — 비율·건수·대수
+RX_CASE_NUM = re.compile(r"\d+(?:\.\d+)?\s*%|\d{1,5}\s*(?:건|대|곳|명)")
+RX_YEAR = re.compile(r"(?:19|20)\d{2}\s*년")
+
+# 파일 이름과 링크 대상은 약어가 아니다 — `[NOTICE](NOTICE)`, `SKILL.md`
+RX_MD_LINK = re.compile(r"\[[^\]]*\]\([^)]*\)")
+RX_FILENAME = re.compile(
+    r"\b[A-Za-z][A-Za-z0-9_.-]*\."
+    r"(?:md|py|json|html|css|svg|png|pdf|txt|csv|ya?ml|toml|cfg|ini|sh|bat)\b")
+FILE_WORDS = {"README", "LICENSE", "NOTICE", "ORIGIN", "SKILL", "CHANGELOG",
+              "MEMORY", "CONTRIBUTING", "AUTHORS", "INSTALL", "MAKEFILE"}
+
+# 외부 자료의 항목명 — `WS-06 자산 접근 제어` 처럼 ID 뒤에 이름이 붙은 것.
+# 원문 그대로 적어야 하므로 용어 통일 대상이 아니다.
+RX_EXT_ITEM = re.compile(r"^[A-Z][A-Z0-9]{1,7}-\d{1,3}(?:\(\d{1,2}\))?\s+\S")
+
 TERM_PAIRS = [
     ("사용자", ["이용자"]),
     ("기관", ["조직"]),
@@ -234,6 +320,54 @@ def body_lines(doc: Doc) -> list[tuple[int, str]]:
 
 def cells_of(line: str) -> list[str]:
     return [c.strip() for c in line.strip().strip("|").split("|")]
+
+
+def head_level(line: str) -> int:
+    """`###` 의 깊이. 제목이 아니면 0."""
+    m = re.match(r"^(#{1,6})\s", line)
+    return len(m.group(1)) if m else 0
+
+
+def zones_of(doc: Doc, head_rx) -> list[tuple[int, int]]:
+    """제목이 `head_rx` 에 맞는 절의 (시작줄, 끝줄) 목록.
+
+    같은 깊이 이상의 다음 제목에서 끊는다. 앞붙이(목차·발간 정보)처럼
+    **본문과 성격이 다른 구역**만 보는 검사에 쓴다.
+    """
+    out: list[tuple[int, int]] = []
+    start = lv = 0
+    for i, l in enumerate(doc.lines, 1):
+        h = head_level(l)
+        if start and h and h <= lv:
+            out.append((start, i - 1))
+            start = lv = 0
+        if not start and h and head_rx.match(l):
+            start, lv = i, h
+    if start:
+        out.append((start, len(doc.lines)))
+    return out
+
+
+def in_zones(n: int, zones: list[tuple[int, int]]) -> bool:
+    return any(a <= n <= b for a, b in zones)
+
+
+def docnames(text: str) -> set[str]:
+    """꺾쇠로 인용한 문서명. 공백을 지워 비교한다."""
+    return {re.sub(r"\s+", "", m) for m in RX_DOCNAME.findall(text)}
+
+
+def term_line(line: str) -> str:
+    """용어 혼용을 볼 때 쓰는 줄.
+
+    **외부 자료의 제목과 항목명은 원문 그대로 적어야 하므로 지운다.** 부록의
+    대응표에 선행 자료의 항목명 `WS-06 자산 접근 제어` 를 옮겼더니 '접근 제어'
+    와 '접근통제' 가 섞였다고 나왔다 — 고칠 수 없는 것을 지적한 것이다.
+    """
+    s = outside_quote(unquoted(line))
+    if TABLE_ROW.match(line):
+        s = " | ".join(c for c in cells_of(s) if not RX_EXT_ITEM.match(c))
+    return s
 
 
 def outside_quote(line: str) -> str:
@@ -805,12 +939,13 @@ def check_figures(doc: Doc) -> None:
 
 def check_terms(doc: Doc) -> None:
     """같은 개념의 다른 표현이 함께 쓰였는지."""
+    masked = [(n, term_line(l)) for n, l in body_lines(doc)]
     for prefer, others in TERM_PAIRS:
-        pn = [n for n, l in body_lines(doc) if prefer in l]
+        pn = [n for n, l in masked if prefer in l]
         if not pn:
             continue
         for other in others:
-            on = [n for n, l in body_lines(doc) if other in l and prefer not in l]
+            on = [n for n, l in masked if other in l and prefer not in l]
             if not on:
                 continue
             doc.add_agg("TERM-MIX", "info", on,
@@ -829,8 +964,13 @@ def check_abbr(doc: Doc) -> None:
             continue
         # 통제항목 ID·점검항목 번호·권고 번호 안의 2~6글자 토큰은 약어가 아니다
         l = RX_IDLIKE.sub(" ", l)
+        # 파일 이름과 링크 대상도 약어가 아니다 — `[NOTICE](NOTICE)` 가
+        # NOTICE 를 두 번, `SKILL.md` 가 SKILL 을 한 번 세게 만들었다.
+        l = RX_FILENAME.sub(" ", RX_MD_LINK.sub(" ", l))
         for ab in re.findall(r"(?<![A-Za-z])([A-Z]{2,6})(?![A-Za-z])", l):
             used.setdefault(ab, []).append(n)
+    for w in FILE_WORDS:
+        used.pop(w, None)
     missing = {ab: ns for ab, ns in used.items()
                if ab not in intro and ab not in ID_IGNORE_PREFIX and len(ns) >= 3}
     if not missing:
@@ -842,6 +982,215 @@ def check_abbr(doc: Doc) -> None:
                 f"풀네임 병기 없이 반복되는 약어 {len(missing)}종 — {shown}",
                 "첫 등장에 한 번만 병기하세요 — ABBR(Full Name) 또는 국문명(ABBR). "
                 "약어가 10개를 넘으면 부록에 약어표를 두세요.")
+
+
+def check_placeholder(doc: Doc) -> None:
+    """발간 전에 실제 값으로 바뀌어야 하는 자리표시자.
+
+    기관명·발간등록번호·문의처가 `(발행기관명)` 인 채로 배포본이 만들어진
+    일이 있었다. 조판기는 원고를 그대로 옮기므로 **원고에서 걸러야 한다.**
+
+    지적하는 꼴은 코퍼스 24종에서 **한 번도 나오지 않은 것**으로 한정했다.
+    ○○ · OOO · ____ 는 발행본도 쓰지만 예시와 양식 안에서만 쓰므로, 실제
+    값이 들어가야 하는 앞붙이에서만 본다.
+    """
+    front = zones_of(doc, RX_HEAD_FRONT)
+    hits: dict[str, list[int]] = {}
+    for n, raw in body_lines(doc):
+        if not raw.strip():
+            continue
+        # 자리표시자를 **가리켜 설명하는** 자리는 보지 않는다. 이 검사의
+        # 설명표에 `(기관명)` 과 `TODO` 를 보기로 적었더니 자기 규칙에 걸렸다.
+        l = unquoted(raw)
+        for rx, label in RX_PLACEHOLDER_ALWAYS:
+            if rx.search(l):
+                hits.setdefault(label, []).append(n)
+        if in_zones(n, front):
+            for rx, label in RX_PLACEHOLDER_FRONT:
+                if rx.search(l):
+                    hits.setdefault(label, []).append(n)
+    if not hits:
+        return
+    shown = ", ".join(sorted(hits))
+    doc.add_agg("PLACEHOLDER", "error",
+                [ns[0] for ns in hits.values()],
+                f"자리표시자가 남아 있습니다 — {len(hits)}종 ({shown})",
+                "발간등록번호·발행기관·문의처는 발간 직전에 채웁니다. "
+                "자리표시자가 남으면 배포본에 그대로 인쇄됩니다.")
+
+
+def check_source_count(doc: Doc) -> None:
+    """외부 자료의 수를 단정하면서 그 자료를 참고 자료에 올리지 않은 곳.
+
+    원고가 선행 자료의 점검항목을 98 개라고 적었으나 **실제는 112 개**였다.
+    대조한 적이 없는데 대조했다고 적힌 것을 검사가 잡지 못했다.
+
+    검사기가 외부 자료를 세어 볼 수는 없다. 할 수 있는 일은 **그 수를
+    단정한 문장이 가리키는 자료가 참고 자료 목록에 있는지** 보는 것이다.
+    목록에 없으면 원문을 확인한 적이 없다는 뜻이다.
+    """
+    refs = zones_of(doc, RX_HEAD_REF)
+    if not refs:
+        return
+    listed: set[str] = set()
+    for a, b in refs:
+        listed |= docnames("\n".join(doc.lines[a - 1:b]))
+    if not listed:
+        return
+    skip = refs + zones_of(doc, RX_HEAD_HIST)
+    bad: dict[str, list[int]] = {}
+    for n, l in body_lines(doc):
+        if in_zones(n, skip) or not RX_ASSERT_COUNT.search(l):
+            continue
+        for name in RX_DOCNAME.findall(l):
+            flat = re.sub(r"\s+", "", name)
+            if RX_LAW_NAME.search(flat):
+                continue
+            if any(flat in q or q in flat for q in listed):
+                continue
+            bad.setdefault(name, []).append(n)
+    if not bad:
+        return
+    shown = ", ".join("\uff62%s\uff63" % s for s in sorted(bad)[:SAMPLE_LIMIT])
+    doc.add_agg("SOURCE-COUNT", "warn",
+                [ns[0] for ns in bad.values()],
+                f"참고 자료에 없는 문서의 수를 단정했습니다 — {len(bad)}종 ({shown})",
+                "외부 자료의 항목 수를 적으려면 그 자료를 원문으로 확인하고 "
+                "참고 자료에 올리세요. 확인하지 않은 수는 틀립니다.")
+
+
+def check_ref_unused(doc: Doc) -> None:
+    """참고 자료에 올렸으나 본문에서 한 번도 인용하지 않은 자료.
+
+    실재하지 않는 자료명이 참고 자료에 남아 있던 일이 있었다. 검사기가
+    자료의 실재를 확인할 수는 없지만, **본문이 쓰지 않는 자료**는 집필 중에
+    지운 인용의 흔적이거나 확인하지 않고 올린 것이다. 어느 쪽이든 본다.
+    """
+    refs = zones_of(doc, RX_HEAD_REF)
+    if not refs:
+        return
+    # 비교는 공백을 지운 꼴로 하고, 보여 줄 때는 원문의 표기를 쓴다.
+    listed: dict[str, int] = {}
+    spell: dict[str, str] = {}
+    for a, b in refs:
+        for i in range(a, min(b, len(doc.lines)) + 1):
+            for name in RX_DOCNAME.findall(doc.lines[i - 1]):
+                flat = re.sub(r"\s+", "", name)
+                listed.setdefault(flat, i)
+                spell.setdefault(flat, name.strip())
+    if not listed:
+        return
+    used: set[str] = set()
+    for n, l in body_lines(doc):
+        if in_zones(n, refs):
+            continue
+        used |= docnames(l)
+    listed = {q: i for q, i in listed.items() if not RX_LAW_NAME.search(q)}
+    idle = {q: i for q, i in listed.items()
+            if not any(q in u or u in q for u in used)}
+    if not idle:
+        return
+    shown = ", ".join("\uff62%s\uff63" % spell.get(s, s)
+                      for s in sorted(idle)[:SAMPLE_LIMIT])
+    doc.add_agg("REF-UNUSED", "info", list(idle.values()),
+                f"본문에서 인용하지 않은 참고 자료가 있습니다 — "
+                f"{len(idle)}종 ({shown})",
+                "쓰지 않는 자료는 목록에서 빼세요. 확인하지 않은 자료명이 "
+                "목록에만 남아 있으면 읽는 사람이 실재한다고 믿습니다.")
+
+
+def check_draft_note(doc: Doc) -> None:
+    """앞붙이에 남은 집필용 메모.
+
+    목차 끝의 "쪽번호는 조판 단계에서 붙인다…" 가 발행본에 그대로 인쇄됐다.
+    목차와 발간 정보는 **표와 목록으로만 이루어진 구역**이라, 거기 있는
+    평서문은 대개 집필 중에 적어 둔 메모다.
+
+    `※` 로 시작하는 줄은 발행본의 관례이므로 보지 않는다.
+    """
+    zones = zones_of(doc, RX_HEAD_NOTE)
+    if not zones:
+        return
+    hit: list[int] = []
+    for n, l in body_lines(doc):
+        if not in_zones(n, zones):
+            continue
+        s = l.strip()
+        if (not s or head_level(l) or s.startswith(("|", "*", "-", ">", "!",
+                                                   "\u203b", "+"))
+                or re.match(r"^\d+[.)]", s) or len(s) < 12):
+            continue
+        if re.search(r"(?:다|요)[.。]?$|한다[.。]?$|니다[.。]?$", s):
+            hit.append(n)
+    if not hit:
+        return
+    doc.add_agg("DRAFT-NOTE", "warn", hit,
+                f"앞붙이에 평서문이 있습니다 — 집필용 메모인지 확인하세요 "
+                f"({len(hit)}줄)",
+                "목차와 발간 정보는 표와 목록으로만 짭니다. 집필 중에 적어 둔 "
+                "메모는 발간 전에 지우세요 — 조판기는 원고를 그대로 옮깁니다.")
+
+
+def check_evidence(doc: Doc) -> None:
+    """사례 단락에 근거가 없는 곳.
+
+    제3장의 사례 네 건을 원문과 대조했더니 여섯 곳이 어긋났다 — 원문에 없는
+    기간·빈도·순위를 덧붙이고, 연구가 밝힌 근사값 한계를 빼먹었다. 검사기가
+    사실을 확인할 수는 없다.
+
+    할 수 있는 일은 **연도와 수치를 함께 든 단락에 출처가 있는지** 보는
+    것이다. 집필자가 근거를 적게 만드는 효과가 있다.
+    """
+    if not zones_of(doc, RX_HEAD_REF):
+        return   # 참고 자료를 두지 않는 문서는 보지 않는다
+    para: list[tuple[int, str]] = []
+    hit: list[int] = []
+
+    def flush() -> None:
+        if not para:
+            return
+        body = " ".join(s for _, s in para)
+        if (RX_YEAR.search(body) and RX_CASE_NUM.search(body)
+                and not RX_EVIDENCE.search(body)):
+            hit.append(para[0][0])
+        para.clear()
+
+    for n, l in body_lines(doc):
+        s = l.strip()
+        if not s or head_level(l) or TABLE_ROW.match(l):
+            flush()
+            continue
+        para.append((n, s))
+    flush()
+    if not hit:
+        return
+    doc.add_agg("EVIDENCE-NONE", "info", hit,
+                f"연도와 수치를 들었으나 출처가 없는 단락이 있습니다 "
+                f"({len(hit)}곳)",
+                "사례의 수치는 1차 자료에서 가져오고 `출처:` 로 밝히세요. "
+                "원문에 없는 기간·빈도·순위를 덧붙이지 않습니다.")
+
+
+def check_id_abbrev(doc: Doc) -> None:
+    """접두사를 생략해 줄여 쓴 ID.
+
+    `SSDF-03·04·05` 처럼 적으면 읽는 사람이 `SSDF-05` 로 찾아도 걸리지
+    않는다. 참고 문서는 ID 로 찾는 일이 잦다.
+
+    다만 **발행본도 이렇게 쓴다** — 코퍼스 24종 중 2종에서 32회 나왔다
+    (`TID-105, 110, 118`). 틀린 것이 아니므로 참고로만 알린다.
+    """
+    hit: list[int] = []
+    for n, l in body_lines(doc):
+        # 줄여 쓴 보기를 **인용해 설명하는** 자리는 보지 않는다.
+        if RX_ID_ABBREV.search(unquoted(l)):
+            hit.append(n)
+    if not hit:
+        return
+    doc.add_agg("ID-ABBREV", "info", hit,
+                f"접두사를 생략해 줄여 쓴 ID 가 있습니다 ({len(hit)}줄)",
+                "`TID-105, 110, 118` 은 `TID-105, TID-110, TID-118` 로 "
+                "풀어 쓰세요. 줄여 쓰면 ID 로 찾을 수 없습니다.")
 
 
 CHECKS = {
@@ -861,6 +1210,12 @@ CHECKS = {
     "GRADE-COUNT": check_grade_count,
     "STYLE": check_style,
     "ID-ORDER": check_id_order,
+    "PLACEHOLDER": check_placeholder,
+    "SOURCE-COUNT": check_source_count,
+    "REF-UNUSED": check_ref_unused,
+    "DRAFT-NOTE": check_draft_note,
+    "EVIDENCE-NONE": check_evidence,
+    "ID-ABBREV": check_id_abbrev,
 }
 
 # 한 검사가 여러 코드를 낼 수 있으므로 --only 용 별칭을 둔다
