@@ -167,7 +167,10 @@ FIGURATIVE = [
     (r"걸린다", "적용된다·소요된다"),
     (r"을 타면|를 타면", "을 통해 배포되면"),
     (r"발판", "경유지"),
-    (r"잠그면|잠근다", "해제할 수 없도록 설정하면"),
+    # 권장 표현을 짧게 둔다. `해제할 수 없도록 설정하면` 은 길어서, 앞말이
+    # 이미 `풀 수 없게` 인 자리에 넣으면 같은 말이 두 번 들어간다. 실제로
+    # 원고에 `풀 수 없게 해제할 수 없도록 설정하면` 이 남았다.
+    (r"잠그면|잠근다", "해제를 제한하면"),
     (r"풀리|풀면|푼다", "해제되면"),
 ]
 RX_FIGURATIVE = [(re.compile(p), s) for p, s in FIGURATIVE]
@@ -284,6 +287,35 @@ FILE_WORDS = {"README", "LICENSE", "NOTICE", "ORIGIN", "SKILL", "CHANGELOG",
 # 외부 자료의 항목명 — `WS-06 자산 접근 제어` 처럼 ID 뒤에 이름이 붙은 것.
 # 원문 그대로 적어야 하므로 용어 통일 대상이 아니다.
 RX_EXT_ITEM = re.compile(r"^[A-Z][A-Z0-9]{1,7}-\d{1,3}(?:\(\d{1,2}\))?\s+\S")
+
+# 머리표로 시작하는 소제목 — 발행본 24종 가운데 5종이 ■ 를, 5종이 ○ 를 쓴다
+RX_MARK_HEAD = re.compile(r"^\s*([\u25a0\u25c6\u25cb\u25cf\u25a1\u203b])\s*(\S.*)$")
+
+# 수량 단위는 앞말과 띄어 쓴다 — `연1회` → `연 1회`.
+# 코퍼스는 띄움 20회(4종) · 붙임 11회(2종) 로 **띄움이 다수**이고, 한글
+# 맞춤법도 관형사 뒤를 띄운다. 다만 붙여 쓴 발행본이 있어 참고로만 알린다.
+RX_CYCLE_TIGHT = re.compile(r"(?<![0-9])(연|월|주|분기|반기|년|일)(\d+\s*회)")
+
+# 문서이력 표의 버전과 일자
+RX_HIST_ROW = re.compile(r"^\|\s*(\d+\.\d+)\s*\|\s*([\d.\s]{6,20})\|(.*)$")
+# 발간 정보의 작성 기준일과 최종 수정일
+RX_BASEDATE = re.compile(r"작성\s*기준일\s*\|\s*([\d.\s]{6,20})")
+RX_LASTDATE = re.compile(r"최종\s*(?:수정|변경)일?\s*\|\s*([\d.\s]{6,20})")
+# `변경 전 → 변경 후` 꼴의 기록
+RX_ARROW_PAIR = re.compile(r"([^\s,(（]{2,20})\s*(?:→|->)\s*([^\s,)）]{2,20})")
+
+# 원고가 끌어 쓰는 그림 파일
+RX_IMG = re.compile(r"!\[[^\]]*\]\(([^)]+)\)")
+
+
+def ymd(s: str):
+    """`2026. 11. 20.` 을 (2026, 11, 20) 으로. 못 읽으면 None."""
+    nums = re.findall(r"\d+", s)
+    if len(nums) < 3:
+        return None
+    y, m, d = (int(x) for x in nums[:3])
+    return (y, m, d) if 1900 < y < 2200 and 1 <= m <= 12 and 1 <= d <= 31 else None
+
 
 TERM_PAIRS = [
     ("사용자", ["이용자"]),
@@ -1193,6 +1225,161 @@ def check_id_abbrev(doc: Doc) -> None:
                 "풀어 쓰세요. 줄여 쓰면 ID 로 찾을 수 없습니다.")
 
 
+def check_heading_dup(doc: Doc) -> None:
+    """한 절 안에 같은 소제목이 두 번.
+
+    제5장 제6절에 `\u25a0 구현 방법 예시` 가 **연달아 두 번** 나왔다. 집필 중에
+    문단을 옮기면 생기는 결함인데, 조판기는 둘 다 찍는다. 읽는 사람은 어느
+    쪽이 이어지는 내용인지 알 수 없다.
+    """
+    seen: dict[str, int] = {}
+    hit: list[int] = []
+    for n, l in body_lines(doc):
+        if head_level(l):
+            seen.clear()            # 제목을 만나면 새 구역
+            continue
+        m = RX_MARK_HEAD.match(l)
+        if not m:
+            continue
+        key = re.sub(r"\s+", "", m.group(2))
+        if key in seen:
+            hit.append(n)
+        else:
+            seen[key] = n
+    if not hit:
+        return
+    doc.add_agg("HEADING-DUP", "warn", hit,
+                f"같은 소제목이 한 절 안에 두 번 나옵니다 ({len(hit)}곳)",
+                "하나로 합치세요. 문단을 옮기다 생긴 것입니다 — 조판기는 "
+                "둘 다 찍으므로 읽는 사람이 어느 쪽이 이어지는지 모릅니다.")
+
+
+def check_cycle_space(doc: Doc) -> None:
+    """주기 표현의 띄어쓰기 — `연1회` → `연 1회`."""
+    hit = [n for n, l in body_lines(doc) if RX_CYCLE_TIGHT.search(unquoted(l))]
+    if not hit:
+        return
+    doc.add_agg("CYCLE-SPACE", "info", hit,
+                f"주기를 붙여 썼습니다 — `연1회` 는 `연 1회` ({len(hit)}줄)",
+                "코퍼스는 띄움 20회(4종) · 붙임 11회(2종) 로 띄움이 다수이고 "
+                "맞춤법도 띄웁니다. 문서 안에서 하나로 통일하세요.")
+
+
+def check_history(doc: Doc) -> None:
+    """문서이력 표의 정렬과 빈 기록.
+
+    `0.1 → 0.2 → 0.7 → 0.6 → 0.5 → 0.4 → 0.3` 처럼 뒤섞인 이력이 발행본에
+    그대로 들어갔다. 또 `보완한다→보완한다` 처럼 **변경 전과 후가 같은**
+    기록이 있어 무엇을 고쳤는지 알 수 없었다. 표기 교정이 이력 문장에도
+    적용되어 변경 전 표현까지 바뀐 것이다.
+    """
+    zones = zones_of(doc, RX_HEAD_HIST)
+    if not zones:
+        return
+    rows: list[tuple[int, str, tuple]] = []
+    noop: list[int] = []
+    for a, b in zones:
+        for i in range(a, min(b, len(doc.lines)) + 1):
+            l = doc.lines[i - 1]
+            m = RX_HIST_ROW.match(l)
+            if not m:
+                continue
+            d = ymd(m.group(2))
+            if d:
+                rows.append((i, m.group(1), d))
+            for before, after in RX_ARROW_PAIR.findall(m.group(3)):
+                if before == after:
+                    noop.append(i)
+                    break
+    if noop:
+        doc.add_agg("HISTORY-NOOP", "warn", noop,
+                    f"변경 전과 후가 같은 이력이 있습니다 ({len(noop)}줄)",
+                    "`보완한다→보완한다` 로는 무엇을 고쳤는지 알 수 없습니다. "
+                    "표기 교정이 이력 문장의 '변경 전' 까지 바꾼 것이니 "
+                    "원래 표현을 되살리세요.")
+    if len(rows) < 3:
+        return
+    # 버전은 오름차순이든 내림차순이든 한 방향이어야 한다
+    def ver(s: str) -> tuple:
+        return tuple(int(x) for x in s.split("."))
+
+    vs = [ver(v) for _, v, _ in rows]
+    if vs == sorted(vs) or vs == sorted(vs, reverse=True):
+        return
+    # 어긋난 줄만 짚는다
+    want = sorted(vs, reverse=vs[0] > vs[-1])
+    bad = [rows[i][0] for i in range(len(vs)) if vs[i] != want[i]]
+    doc.add_agg("HISTORY-ORDER", "warn", bad or [rows[0][0]],
+                "문서이력의 버전이 한 방향으로 정렬되지 않았습니다",
+                "새 버전을 위에 넣든 아래에 넣든 한 방향으로만 쌓으세요. "
+                "뒤섞이면 읽는 사람이 어느 것이 최신인지 알 수 없습니다.")
+
+
+def check_date_sync(doc: Doc) -> None:
+    """발간 정보의 작성 기준일과 문서이력의 최신 일자.
+
+    표지에는 2026. 11. 20. 이, 문서이력의 최신 기록에는 11. 23. 이 적혀
+    있었다. 둘 중 어느 것이 이 문서의 날짜인지 알 수 없다.
+    """
+    m = RX_BASEDATE.search(doc.text)
+    if not m:
+        return
+    base = ymd(m.group(1))
+    if not base:
+        return
+    # 최종 수정일을 따로 적어 두었으면 그것과 맞춰 본다. 작성 기준일은 내용의
+    # 기준 시점이고 최종 수정일은 마지막 손질이라 둘은 달라도 된다.
+    lm = RX_LASTDATE.search(doc.text)
+    if lm:
+        lastdecl = ymd(lm.group(1))
+        if lastdecl:
+            base = max(base, lastdecl)
+    zones = zones_of(doc, RX_HEAD_HIST)
+    dates = []
+    for a, b in zones:
+        for i in range(a, min(b, len(doc.lines)) + 1):
+            hm = RX_HIST_ROW.match(doc.lines[i - 1])
+            if hm:
+                d = ymd(hm.group(2))
+                if d:
+                    dates.append((d, i))
+    if not dates:
+        return
+    last, line = max(dates)
+    if last <= base:
+        return
+    doc.add("DATE-MISMATCH", "warn", line,
+            "문서이력의 최신 일자가 작성 기준일보다 뒤입니다 — "
+            "%d. %d. %d. > %d. %d. %d." % (last + base),
+            "작성 기준일(내용의 기준 시점)과 최종 수정일(마지막 손질)은 다른 "
+            "날짜입니다. 발간 정보에 `최종 수정일` 칸을 더해 구분하거나 "
+            "기준일을 갱신하세요.")
+
+
+def check_figure_files(doc: Doc) -> None:
+    """원고가 끌어 쓰는 그림 파일이 실제로 있는지.
+
+    검사기가 캡션만 보고 있어 **파일이 없어도 통과**했다. 조판기는 없는
+    그림을 조용히 비워 두므로 발행본에 빈 자리가 남는다.
+    """
+    miss: list[int] = []
+    for n, raw in body_lines(doc):
+        # 끌어 쓰는 꼴을 **가리켜 설명하는** 자리는 보지 않는다. SKILL.md 가
+        # 백틱 안에 `![](figures/*.svg)` 를 적어 두었더니 걸렸다.
+        for src in RX_IMG.findall(unquoted(raw)):
+            src = src.split()[0].strip('<>"\'')
+            if src.startswith(("http://", "https://", "data:")):
+                continue
+            if not (doc.path.parent / src).exists():
+                miss.append(n)
+    if not miss:
+        return
+    doc.add_agg("FIGURE-FILE", "error", miss,
+                f"원고가 끌어 쓰는 그림 파일이 없습니다 ({len(miss)}곳)",
+                "조판기는 없는 그림을 조용히 비워 둡니다. figures.py 로 "
+                "그리거나 경로를 고치세요.")
+
+
 CHECKS = {
     "ENDING-MIX": check_ending_mix,
     "HONORIFIC": check_honorific,
@@ -1216,6 +1403,11 @@ CHECKS = {
     "DRAFT-NOTE": check_draft_note,
     "EVIDENCE-NONE": check_evidence,
     "ID-ABBREV": check_id_abbrev,
+    "HEADING-DUP": check_heading_dup,
+    "CYCLE-SPACE": check_cycle_space,
+    "HISTORY-ORDER": check_history,
+    "DATE-MISMATCH": check_date_sync,
+    "FIGURE-FILE": check_figure_files,
 }
 
 # 한 검사가 여러 코드를 낼 수 있으므로 --only 용 별칭을 둔다
@@ -1233,6 +1425,7 @@ ALIAS = {
     "COUNT-MISMATCH": "STYLE",
     "COUNT-LIST": "STYLE",
     "EM-DASH": "STYLE",
+    "HISTORY-NOOP": "HISTORY-ORDER",
     "PARTICLE-SPACE": "NOTATION",
     "HEADING-SKIP": "HEADINGS",
     "HEADING-DEPTH": "HEADINGS",
